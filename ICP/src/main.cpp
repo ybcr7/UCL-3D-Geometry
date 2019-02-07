@@ -4,63 +4,32 @@
 #include <igl/opengl/glfw/imgui/ImGuiHelpers.h>
 #include <imgui/imgui.h>
 #include <iostream>
-//#include "tutorial_shared_path.h"
+#include "icp.h"
 
-class MyContext
+class Scene
 {
 public:
 
-	MyContext():nv_len(0.2), point_size(20),line_width(2){}
-	~MyContext() {}
+    Scene(){}
+    ~Scene(){}
 
-	float nv_len; 
-	float point_size;
-	float line_width;
-
-	void reset_display(igl::opengl::glfw::Viewer& viewer)
+	void Reset(igl::opengl::glfw::Viewer& viewer)
 	{
-		const Eigen::MatrixXd V = (Eigen::MatrixXd(8, 3) <<
-			0.0, 0.0, 0.0,
-			0.0, 0.0, 1.0,
-			0.0, 1.0, 0.0,
-			0.0, 1.0, 1.0,
-			1.0, 0.0, 0.0,
-			1.0, 0.0, 1.0,
-			1.0, 1.0, 0.0,
-			1.0, 1.0, 1.0).finished();
-
-		const Eigen::MatrixXi F = (Eigen::MatrixXi(12, 3) <<
-			1, 7, 5,
-			1, 3, 7,
-			1, 4, 3,
-			1, 2, 4,
-			3, 8, 7,
-			3, 4, 8,
-			5, 7, 8,
-			5, 8, 6,
-			1, 5, 6,
-			1, 6, 2,
-			2, 6, 8,
-			2, 8, 4).finished().array() - 1;
-
-		viewer.data().clear();
-		viewer.data().set_mesh(V, F);
-		viewer.core.align_camera_center(V, F);
-
-		viewer.data().line_width = line_width;
-		viewer.data().point_size = point_size;
-
-		viewer.data().add_points(V, Eigen::RowVector3d(1, 1, 0));
-
-		Eigen::MatrixXd V2 = V.array() + nv_len;
-		viewer.data().add_edges(V, V2, Eigen::RowVector3d(1, 0, 1));
+        igl::readOFF("../data/bun000.off", V, F);
+        
+        viewer.data().clear();
+        viewer.data().set_mesh(V, F);
+        viewer.core.align_camera_center(V, F);
 	}
-
-private:
+    
+    private:
+    
+    Eigen::MatrixXd V;
+    Eigen::MatrixXi F;
 
 };
 
-MyContext g_myctx;
+Scene scene;
 
 
 bool key_down(igl::opengl::glfw::Viewer& viewer, unsigned char key, int modifier)
@@ -135,46 +104,10 @@ int main(int argc, char *argv[])
 		}
 	};
 
-	// Add additional windows via defining a Lambda expression with captures by reference([&])
-	menu.callback_draw_custom_window = [&]()
-	{
-		// Define next window position + size
-		ImGui::SetNextWindowPos(ImVec2(180.f * menu.menu_scaling(), 10), ImGuiSetCond_FirstUseEver);
-		ImGui::SetNextWindowSize(ImVec2(300, 160), ImGuiSetCond_FirstUseEver);
-		ImGui::Begin( "MyProperties", nullptr, ImGuiWindowFlags_NoSavedSettings );
-		
-		// point size
-		// [event handle] if value changed
-		if (ImGui::InputFloat("point_size", &g_myctx.point_size))
-		{
-			std::cout << "point_size changed\n";
-			viewer.data().point_size = g_myctx.point_size;
-		}
-
-		// line width
-		// [event handle] if value changed
-		if(ImGui::InputFloat("line_width", &g_myctx.line_width))
-		{
-			std::cout << "line_width changed\n";
-			viewer.data().line_width = g_myctx.line_width;
-		}
-
-		// length of normal line
-		// [event handle] if value changed
-		if (ImGui::InputFloat("line_length", &g_myctx.nv_len))
-		{
-			//pass
-			std::cout << "line_length changed\n";
-			g_myctx.reset_display(viewer);
-		}
-		
-		ImGui::End();
-	};
-
 	// registered a event handler
 	viewer.callback_key_down = &key_down;
 
-	g_myctx.reset_display(viewer);
+	scene.Reset(viewer);
 
 	// Call GUI
 	viewer.launch();

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.1)
-project(ICP)
+project(icp)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
@@ -15,9 +15,11 @@ find_package(LIBIGL REQUIRED QUIET)
 
 set(SRC_FILES ${PROJECT_SOURCE_DIR}/main.cpp
 ${PROJECT_SOURCE_DIR}/icp.cpp
+${PROJECT_SOURCE_DIR}/scene.cpp
 ${PROJECT_SOURCE_DIR}/icp.h
+${PROJECT_SOURCE_DIR}/scene.h
 ${PROJECT_SOURCE_DIR}/nanoflann.hpp
 )
                           
-add_executable(${PROJECT_NAME}_binary ${SRC_FILES})
-target_link_libraries(${PROJECT_NAME}_binary igl::core igl::opengl_glfw igl::opengl_glfw_imgui)
+add_executable(${PROJECT_NAME} ${SRC_FILES})
+target_link_libraries(${PROJECT_NAME} igl::core igl::opengl_glfw igl::opengl_glfw_imgui)
