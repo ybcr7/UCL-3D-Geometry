@@ -19,6 +19,7 @@ int main(int argc, char *argv[])
 
 	// Attach a menu plugin
 	igl::opengl::glfw::imgui::ImGuiMenu menu;
+    
 	viewer.plugins.push_back(&menu);
 
 	// Menu variable Shared between two menus
@@ -31,7 +32,45 @@ int main(int argc, char *argv[])
 	{
 		// Draw parent menu content
 		menu.draw_viewer_menu();
-
+        
+        // Add a panel
+        if (ImGui::CollapsingHeader("Operations", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            if (ImGui::Button("Reset Scene", ImVec2(-1, 0)))
+            {
+                scene->Reset();
+            }
+            
+            if (ImGui::Button("Point-to-Point", ImVec2(-1, 0)))
+            {
+                scene->Point2PointAlign();
+            }
+            
+            if (ImGui::Button("Match Rotation", ImVec2(-1, 0)))
+            {
+                scene->MatchRotation();
+            }
+            
+            if (ImGui::Button("Add Noise", ImVec2(-1, 0)))
+            {
+                scene->AddNoise();
+            }
+            
+            if (ImGui::Button("Point-to-Point (Optimised)", ImVec2(-1, 0)))
+            {
+                scene->Point2PointAlignOptimised();
+            }
+            
+            if (ImGui::Button("Multi-Mesh", ImVec2(-1, 0)))
+            {
+                scene->Reset();
+            }
+            
+            if (ImGui::Button("Point-to-Plane", ImVec2(-1, 0)))
+            {
+                scene->Point2PlaneAlign();
+            }
+        }
 	};
 
 	// Registered a event handler

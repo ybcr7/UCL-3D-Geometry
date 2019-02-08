@@ -13,7 +13,7 @@ public:
     // Reset Scene
     void Reset();
     
-    // Task 1 & Task 4
+    // Task 1
     void Point2PointAlign();
     
     // Task 2
@@ -21,6 +21,9 @@ public:
     
     // Task 3
     void AddNoise();
+    
+    // Task 4
+    void Point2PointAlignOptimised();
     
     // Task 5
     void MuiltMeshAlign();

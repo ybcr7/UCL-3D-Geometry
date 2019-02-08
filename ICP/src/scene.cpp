@@ -24,7 +24,6 @@ void Scene::Reset(){
 
 }
 
-
 void Scene::Point2PointAlign(){
     
     
@@ -46,15 +45,23 @@ void Scene::AddNoise(){
     
 }
 
+void Scene::Point2PointAlignOptimised(){
+    
+    
+    
+    
+    
+}
+
 
 void Scene::MuiltMeshAlign(){
-//    viewer.data().clear;
-//
-//    igl::readOFF(TUTORIAL_SHARED_PATH "/bun000.off", V1, F1);
-//    igl::readOFF(TUTORIAL_SHARED_PATH "/bun045.off", V2, F2);
-//    igl::readOFF(TUTORIAL_SHARED_PATH "/bun090.off", V3, F3);
-//    igl::readOFF(TUTORIAL_SHARED_PATH "/bun180.off", V4, F4);
-//    igl::readOFF(TUTORIAL_SHARED_PATH "/bun270.off", V5, F5);
+    viewer.data().clear;
+
+    igl::readOFF(TUTORIAL_SHARED_PATH "/bun000.off", V1, F1);
+    igl::readOFF(TUTORIAL_SHARED_PATH "/bun045.off", V2, F2);
+    igl::readOFF(TUTORIAL_SHARED_PATH "/bun090.off", V3, F3);
+    igl::readOFF(TUTORIAL_SHARED_PATH "/bun180.off", V4, F4);
+    igl::readOFF(TUTORIAL_SHARED_PATH "/bun270.off", V5, F5);
     
 }
 
