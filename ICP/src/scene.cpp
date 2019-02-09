@@ -47,22 +47,12 @@ void Scene::RotateMeshWithNoise(double degreeZ, double sd){
     // Load M1
     igl::readOFF("../data/bun000.off", V1, F1);
     
-    // Construct rotation matrix
-    Eigen::Matrix3d R;
-    R << Eigen::AngleAxisd(degreeZ * M_PI/180, Eigen::Vector3d(0,0,1)).toRotationMatrix();
-    
     // M2 = R(M1), vertex positions are changed while the face relation remains
-    V2 = V1 * R;
+    V2 = ICP::Rotate(V1, degreeZ);
     F2 = F1;
 
     // M2' = M2
-    
-    
-    
-    
-    
-    
-    
+    V2 = ICP::AddNoise(V2, sd);
     
     // Display meshes
     Eigen::MatrixXd V(V1.rows()+V2.rows(), V1.cols());

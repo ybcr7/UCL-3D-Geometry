@@ -1,10 +1,11 @@
 // Global static functions
-namespace icp{
 
-    void ZeroMeanGaussianNoise(Eigen::Matrix)
+namespace ICP{
 
-
-
-
-
+    Eigen::MatrixXd Rotate(Eigen::MatrixXd V_in, double degree);
+    Eigen::MatrixXd AddNoise(Eigen::MatrixXd V_in, double sd);
+    void PointBasedICP();
+    void PointBasedICPOptimised();
+    void NormalBasedICP();
+    
 }
