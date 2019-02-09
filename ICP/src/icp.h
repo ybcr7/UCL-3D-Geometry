@@ -1,16 +1,10 @@
-#include "nanoflann.hpp"
+// Global static functions
+namespace icp{
 
-class icp{
-public:
-    
-    
-    
-    
-    
-private:
-    
-    
-    
-    
+    void ZeroMeanGaussianNoise(Eigen::Matrix)
 
-};
+
+
+
+
+}

@@ -1,26 +1,15 @@
-#include <igl/readOFF.h>
-#include <igl/opengl/glfw/Viewer.h>
-#include <igl/opengl/glfw/imgui/ImGuiMenu.h>
-#include <igl/opengl/glfw/imgui/ImGuiHelpers.h>
-#include <imgui/imgui.h>
-
+// Scene manager for loading, allocating tasks and displaying meshes
 class Scene
 {
 public:
-    Scene(igl::opengl::glfw::Viewer& refviewer):viewer(refviewer){}
-    ~Scene(){}
-    
-    // Reset Scene
-    void Reset();
+    Scene(igl::opengl::glfw::Viewer& refViewer);
+    ~Scene();
     
     // Task 1
     void Point2PointAlign();
     
-    // Task 2
-    void MatchRotation();
-    
-    // Task 3
-    void AddNoise();
+    // Task 2 & 3
+    void RotateMeshWithNoise(double degreeZ, double sd);
     
     // Task 4
     void Point2PointAlignOptimised();
@@ -31,6 +20,12 @@ public:
     // Task 6
     void Point2PlaneAlign();
     
+    // Utility
+    void Reset();
+    void DisplayMeshes();
+    
+    void SetIteration(int i);
+    
 private:
     
     igl::opengl::glfw::Viewer& viewer;
@@ -38,6 +33,9 @@ private:
     Eigen::MatrixXd V1, V2, V3, V4, V5;
     Eigen::MatrixXi F1, F2, F3, F4, F5;
     
+    std::vector<Eigen::MatrixXd> Vs;
+    std::vector<Eigen::MatrixXi> Fs;
     
+    int iteration;
     
 };
