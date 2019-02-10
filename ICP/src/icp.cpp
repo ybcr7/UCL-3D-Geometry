@@ -4,19 +4,15 @@
 #include "nanoflann.hpp"
 #include "icp.h"
 
-std::vector<Eigen::RowVector3d> GetRigidTransform(Eigen::MatrixXd V_target, Eigen::MatrixXd V_source){
+std::vector<Eigen::RowVector3d> EstimateRigidTransform(Eigen::MatrixXd V_target, Eigen::MatrixXd V_source){
     
     
     
-    
-    
-    
-    
-    
+
 }
 
 
-Eigen::MatrixXd ICP::PointBasedICP(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process, int iteration){
+Eigen::MatrixXd ICP::FindCorrespondences(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process){
     
     Eigen::MatrixXd V_out;
     V_out.resize(V_to_process.rows(), V_to_process.cols());
@@ -31,7 +27,7 @@ Eigen::MatrixXd ICP::PointBasedICP(Eigen::MatrixXd V_target, Eigen::MatrixXd V_t
     for (size_t v=0; v<V_out.rows(); v++){
         
     // Pick the current vertex for query
-    Eigen::RowVector3d query_vertex = V_out.row(v);
+    Eigen::RowVector3d query_vertex = V_to_process.row(v);
     
     // Create a query object
     std::vector<size_t> indexes(num_result);
@@ -40,9 +36,10 @@ Eigen::MatrixXd ICP::PointBasedICP(Eigen::MatrixXd V_target, Eigen::MatrixXd V_t
     // Find the closest 1 vertex
     nanoflann::KNNResultSet<double> result(num_result);
     result.init(indexes.data(), dists_sqr.data());
+        
     kd_tree_index.index->findNeighbors(result, query_vertex.data(), nanoflann::SearchParams(max_leaf));
     
-    V_out.row(v) = V_to_process.row(indexes[0]);
+    V_out.row(v) = V_target.row(indexes[0]);
 
     }
     
@@ -92,4 +89,9 @@ Eigen::MatrixXd ICP::AddNoise(Eigen::MatrixXd V_in, double sd){
     
     return V_out;
     
+}
+
+
+Eigen::MatrixXd ICP::ICPBasic(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process, size_t iteration){
+    return FindCorrespondences(V_target, V_to_process);
 }

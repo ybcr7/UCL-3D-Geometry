@@ -34,7 +34,26 @@ void Scene::Reset(){
 }
 
 void Scene::Point2PointAlign(){
-    Eigen::MatrixXd Vx = ICP::PointBasedICP(V1, V2, iteration);
+    
+    viewer.data().clear();
+    
+    Eigen::MatrixXd Vx = ICP::ICPBasic(V1, V2, iteration);
+    
+    Eigen::MatrixXd V(V1.rows()+Vx.rows(), V1.cols());
+    V << V1,V2;
+    
+    Eigen::MatrixXi F(F1.rows()+F2.rows(),F1.cols());
+    F << F1,(F2.array()+V1.rows());
+    Eigen::MatrixXd C(F.rows(),3);
+    C <<
+    Eigen::RowVector3d(1.0,0.5,0.25).replicate(F1.rows(),1),
+    Eigen::RowVector3d(1.0,0.8,0.0).replicate(F2.rows(),1);
+    
+    viewer.data().set_mesh(V, F);
+    viewer.data().set_colors(C);
+    viewer.data().set_face_based(true);
+    viewer.core.align_camera_center(V, F);
+    
 }
 
 void Scene::RotateMeshWithNoise(double degreeZ, double sd){
