@@ -20,11 +20,11 @@ void Scene::Reset(){
     V << V1,V2;
 
     Eigen::MatrixXi F(F1.rows()+F2.rows(),F1.cols());
-    F << F1, (F2.array()+V1.rows());
+    F << F1,(F2.array()+V1.rows());
     Eigen::MatrixXd C(F.rows(),3);
     C <<
-    Eigen::RowVector3d(0.66,0.0,0.0).replicate(F1.rows(),1),
-    Eigen::RowVector3d(0.0,0.0,0.66).replicate(F2.rows(),1);
+    Eigen::RowVector3d(1.0,0.5,0.25).replicate(F1.rows(),1),
+    Eigen::RowVector3d(1.0,0.8,0.0).replicate(F2.rows(),1);
 
     viewer.data().set_mesh(V, F);
     viewer.data().set_colors(C);
@@ -34,10 +34,7 @@ void Scene::Reset(){
 }
 
 void Scene::Point2PointAlign(){
-    
-    
-    
-    
+    Eigen::MatrixXd Vx = ICP::PointBasedICP(V1, V2, iteration);
 }
 
 void Scene::RotateMeshWithNoise(double degreeZ, double sd){
@@ -62,8 +59,8 @@ void Scene::RotateMeshWithNoise(double degreeZ, double sd){
     F << F1, (F2.array()+V1.rows());
     Eigen::MatrixXd C(F.rows(),3);
     C <<
-    Eigen::RowVector3d(0.66,0.0,0.0).replicate(F1.rows(),1),
-    Eigen::RowVector3d(0.0,0.0,0.66).replicate(F2.rows(),1);
+    Eigen::RowVector3d(1.0,0.5,0.25).replicate(F1.rows(),1),
+    Eigen::RowVector3d(1.0,0.8,0.0).replicate(F2.rows(),1);
 
     viewer.data().set_mesh(V, F);
     viewer.data().set_colors(C);
@@ -75,8 +72,7 @@ void Scene::RotateMeshWithNoise(double degreeZ, double sd){
 void Scene::Point2PointAlignOptimised(){
     
     
-    
-    
+
     
 }
 
@@ -91,8 +87,25 @@ void Scene::MuiltMeshAlign(){
     igl::readOFF("../data/bun180.off", V4, F4);
     igl::readOFF("../data/bun270.off", V5, F5);
     
-    viewer.data().set_mesh(V1, F1);
-    viewer.core.align_camera_center(V1, F1);
+    // Display meshes
+    Eigen::MatrixXd V(V1.rows()+V2.rows()+V3.rows()+V4.rows()+V5.rows(), V1.cols());
+    V << V1,V2,V3,V4,V5;
+    
+    Eigen::MatrixXi F(F1.rows()+F2.rows()+F3.rows()+F4.rows()+F5.rows(), F1.cols());
+    F <<F1,(F2.array()+V1.rows()), (F3.array()+V2.rows()+V1.rows()), (F4.array()+V3.rows()+V2.rows()+V1.rows()), (F5.array()+V4.rows()+V3.rows()+V2.rows()+V1.rows());
+    
+    Eigen::MatrixXd C(F.rows(),3);
+    C <<
+    Eigen::RowVector3d(1.0,0.5,0.25).replicate(F1.rows(),1),
+    Eigen::RowVector3d(1.0,0.8,0.0).replicate(F2.rows(),1),
+    Eigen::RowVector3d(0.25,0.6,1.0).replicate(F3.rows(),1),
+    Eigen::RowVector3d(0.2,0.7,0.45).replicate(F4.rows(),1),
+    Eigen::RowVector3d(0.8,0.0,0.8).replicate(F5.rows(),1);
+    
+    viewer.data().set_mesh(V, F);
+    viewer.data().set_colors(C);
+    viewer.data().set_face_based(true);
+    viewer.core.align_camera_center(V, F);
 }
 
 
