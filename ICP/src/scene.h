@@ -9,7 +9,7 @@ public:
     void Point2PointAlign();
     
     // Task 2 & 3
-    void RotateMeshWithNoise(double degreeZ, double sd);
+    void RotateMeshWithNoise(double x, double y, double z, double sd);
     
     // Task 4
     void Point2PointAlignOptimised();

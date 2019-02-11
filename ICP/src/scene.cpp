@@ -56,7 +56,7 @@ void Scene::Point2PointAlign(){
     
 }
 
-void Scene::RotateMeshWithNoise(double degreeZ, double sd){
+void Scene::RotateMeshWithNoise(double x, double y, double z, double sd){
     
     viewer.data().clear();
     
@@ -64,7 +64,7 @@ void Scene::RotateMeshWithNoise(double degreeZ, double sd){
     igl::readOFF("../data/bun000.off", V1, F1);
     
     // M2 = R(M1), vertex positions are changed while the face relation remains
-    V2 = ICP::Rotate(V1, degreeZ);
+    V2 = ICP::Rotate(V1, x, y, z);
     F2 = F1;
 
     // M2' = M2

@@ -17,8 +17,10 @@ int main(int argc, char *argv[]){
     Scene scene(viewer);
 
 	// Menu variable Shared between two menus
-	double rotationZValue = 30.0f;
-    double gaussianSD = 0.0f;
+	double rotation_x = 0.0;
+    double rotation_y = 0.0;
+    double rotation_z = 0.0;
+    double gaussian_sd = 0.0;
     int iteration = 50;
 
     // Draw an optional panel for adjusting global variables
@@ -58,11 +60,13 @@ int main(int argc, char *argv[]){
         
         if (ImGui::CollapsingHeader("Task 2 ~ 4", ImGuiTreeNodeFlags_NoAutoOpenOnLog))
         {
-            ImGui::InputDouble("Degree (Z-Axis)", &rotationZValue, 0, 0, "%.4f");
-            ImGui::InputDouble("Zero-Mean Gaussian SD", &gaussianSD, 0, 0, "%.4f");
+            ImGui::InputDouble("Degree (X-Axis)", &rotation_x, 0, 0, "%.4f");
+            ImGui::InputDouble("Degree (Y-Axis)", &rotation_y, 0, 0, "%.4f");
+            ImGui::InputDouble("Degree (Z-Axis)", &rotation_z, 0, 0, "%.4f");
+            ImGui::InputDouble("Zero-Mean Gaussian SD", &gaussian_sd, 0, 0, "%.4f");
             
             if (ImGui::Button("Rotate Mesh with Noise", ImVec2(-1, 0))){
-                scene.RotateMeshWithNoise(rotationZValue,gaussianSD);
+                scene.RotateMeshWithNoise(rotation_x,rotation_y,rotation_z,gaussian_sd);
             }
             
             if (ImGui::Button("Align Meshes", ImVec2(-1, 0))){

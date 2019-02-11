@@ -2,19 +2,25 @@
 
 namespace ICP{
 
-    std::vector<Eigen::RowVector3d> EstimateRigidTransform(Eigen::MatrixXd V_target, Eigen::MatrixXd V_source);
+    struct Transform;
+    
+    Eigen::MatrixXd GetSubsample(Eigen::MatrixXd V_to_process, size_t scale);
     
     Eigen::MatrixXd FindCorrespondences(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process);
     
-    Eigen::MatrixXd Rotate(Eigen::MatrixXd V_in, double degree);
-    Eigen::MatrixXd AddNoise(Eigen::MatrixXd V_in, double sd);
+    Eigen::MatrixXd RejectErrors(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process);
     
-    void PointBasedICPOptimised();
-    void NormalBasedICP();
+    Transform EstimateRigidTransform(Eigen::MatrixXd V_target, Eigen::MatrixXd V_source);
+    
+    Eigen::MatrixXd Rotate(Eigen::MatrixXd V_in, double x, double y, double z);
+    
+    Eigen::MatrixXd AddNoise(Eigen::MatrixXd V_in, double sd);
     
     Eigen::MatrixXd ICPBasic(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process, size_t iteration);
     
     Eigen::MatrixXd ICPOptimised(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process, size_t iteration);
     
     Eigen::MatrixXd ICPNormalBased(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process, size_t iteration);
+    
 }
+
