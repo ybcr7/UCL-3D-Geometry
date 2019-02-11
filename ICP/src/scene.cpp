@@ -4,7 +4,7 @@
 #include "icp.h"
 
 Scene::Scene(igl::opengl::glfw::Viewer& refViewer):viewer(refViewer){
-    iteration = 50;
+    iteration = 1;
 }
 
 Scene::~Scene(){}
@@ -35,24 +35,32 @@ void Scene::Initialise(){
 
 void Scene::Point2PointAlign(){
     
-    viewer.data().clear();
+    Eigen::MatrixXd Vx = V2;
     
-    Eigen::MatrixXd Vx = ICP::ICPBasic(V1, V2, iteration);
+    for (size_t i=0; i<iteration;i++){
+        
+        Vx = ICP::ICPBasic(V1, Vx, iteration);
+        
+        viewer.data().clear();
+        
+        Eigen::MatrixXd V(V1.rows()+Vx.rows(), V1.cols());
+        V << V1,Vx;
+        
+        Eigen::MatrixXi F(F1.rows()+F2.rows(),F1.cols());
+        F << F1,(F2.array()+V1.rows());
+        Eigen::MatrixXd C(F.rows(),3);
+        C <<
+        Eigen::RowVector3d(1.0,0.5,0.25).replicate(F1.rows(),1),
+        Eigen::RowVector3d(1.0,0.8,0.0).replicate(F2.rows(),1);
+        
+        viewer.data().set_mesh(V, F);
+        viewer.data().set_colors(C);
+        viewer.data().set_face_based(true);
+        viewer.core.align_camera_center(V, F);
     
-    Eigen::MatrixXd V(V1.rows()+Vx.rows(), V1.cols());
-    V << V1,V2;
+    }
     
-    Eigen::MatrixXi F(F1.rows()+F2.rows(),F1.cols());
-    F << F1,(F2.array()+V1.rows());
-    Eigen::MatrixXd C(F.rows(),3);
-    C <<
-    Eigen::RowVector3d(1.0,0.5,0.25).replicate(F1.rows(),1),
-    Eigen::RowVector3d(1.0,0.8,0.0).replicate(F2.rows(),1);
-    
-    viewer.data().set_mesh(V, F);
-    viewer.data().set_colors(C);
-    viewer.data().set_face_based(true);
-    viewer.core.align_camera_center(V, F);
+
     
 }
 

@@ -10,7 +10,7 @@ namespace ICP{
     
     Eigen::MatrixXd RejectErrors(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process);
     
-    Transform EstimateRigidTransform(Eigen::MatrixXd V_target, Eigen::MatrixXd V_source);
+    Transform EstimateRigidTransform(Eigen::MatrixXd V_to_process, Eigen::MatrixXd V_matched);
     
     Eigen::MatrixXd Rotate(Eigen::MatrixXd V_in, double x, double y, double z);
     

@@ -7,51 +7,64 @@
 struct ICP::Transform{
     Eigen::Matrix3d R;
     Eigen::RowVector3d T;
+    Eigen::RowVector3d S;
 };
 
-ICP::Transform ICP::EstimateRigidTransform(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process){
+ICP::Transform ICP::EstimateRigidTransform(Eigen::MatrixXd V_to_process, Eigen::MatrixXd V_matched){
     
     // The rigid transform can be estimiated from min(R,t) Sigma_i ||p_i - R*q_i - t||^2
     // t = p_bar - R*q_bar
     // R can be estimated from min(R) Sigma_i ||p_hat_i - R* q_hat_i||^2
     
     //std::cout << V_target.row(0) << std::endl;
-    //std::cout << V_to_process.row(0) << std::endl;
+    //std::cout << V_matched.row(0) << std::endl;
     
     Transform transform;
     
     // Define Barycenters
     
-    std::cout << V_target.rows() << std::endl;
-    std::cout << V_to_process.rows() << std::endl;
+//    std::cout << V_to_process.rows() << std::endl;
+//    std::cout << V_matched.rows() << std::endl;
     
     // p_bar = 1/m sigma p_i => average
-    Eigen::RowVector3d p_bar = V_target.colwise().mean();
-    Eigen::RowVector3d q_bar = V_to_process.colwise().mean();
+    Eigen::RowVector3d p_bar = V_to_process.colwise().mean();
+    Eigen::RowVector3d q_bar = V_matched.colwise().mean();
     
-    std::cout << p_bar << std::endl;
+    //std::cout << p_bar << std::endl;
     //std::cout << q_bar << std::endl;
     
-    Eigen::MatrixXd p_hat = V_target.rowwise() - p_bar;
-    Eigen::MatrixXd q_hat = V_to_process.rowwise() - q_bar;
+    Eigen::MatrixXd p_hat = V_to_process.rowwise() - p_bar;
+    Eigen::MatrixXd q_hat = V_matched.rowwise() - q_bar;
     
-    std::cout << p_hat.row(0) << std::endl;
+    //std::cout << p_hat.row(0) << std::endl;
     //std::cout << q_hat.row(0) << std::endl;
     
     //std::cout << q_hat.row(0)*(p_hat.row(0).transpose()) << std::endl;
     
     // Construct A
-    double A = 0;
-    for (size_t i=0; i<V_target.rows(); i++){
-        A += q_hat.row(i)*(p_hat.row(i).transpose());
+    
+    Eigen::Matrix3d A;
+    A.setZero();
+    
+    for (size_t i=0; i<V_to_process.rows(); i++){
+        
+        Eigen::Vector3d q_i = q_hat.row(i);
+        Eigen::Vector3d p_i = p_hat.row(i);
+        
+        A += q_i * p_i.transpose();
     }
     
-    
-    Eigen::RowVector3d TT;
-    
-    
     //std::cout << A << std::endl;
-    transform.T = TT;
+    
+    Eigen::JacobiSVD<Eigen::MatrixXd> svd(A, Eigen::DecompositionOptions::ComputeThinU| Eigen::DecompositionOptions::ComputeThinV);
+    Eigen::MatrixXd R = svd.matrixV() * svd.matrixU().transpose();
+    Eigen::RowVector3d T = p_bar - R * q_bar;
+
+    transform.R = R;
+    transform.T = T;
+
+    std::cout << transform.R << std::endl;
+    std::cout << transform.T << std::endl;
     
     return transform;
 
@@ -143,13 +156,21 @@ Eigen::MatrixXd ICP::AddNoise(Eigen::MatrixXd V_in, double sd){
 
 Eigen::MatrixXd ICP::ICPBasic(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process, size_t iteration){
     
-    Eigen::MatrixXd V_processed;
+    Eigen::MatrixXd V_out;
+    V_out.resize(V_to_process.rows(), V_to_process.cols());
+    V_out.setZero();
     
-    V_processed = FindCorrespondences(V_target, V_to_process);
+    Eigen::MatrixXd V_matched = FindCorrespondences(V_target, V_to_process);
+    Transform transform = EstimateRigidTransform(V_to_process, V_matched);
     
-    EstimateRigidTransform(V_target, V_processed);
+    for (size_t i=0;i<V_to_process.rows();i++){
+        
+        Eigen::Vector3d row = V_to_process.row(i);
+        V_out.row(i) = (row.transpose() * transform.R - transform.T).transpose();
+        
+    }
     
-    return V_processed;
+    return V_out;
     
 }
 

@@ -21,7 +21,7 @@ int main(int argc, char *argv[]){
     double rotation_y = 0.0;
     double rotation_z = 0.0;
     double gaussian_sd = 0.0;
-    int iteration = 50;
+    int iteration = 1;
 
     // Draw an optional panel for adjusting global variables
     menu.callback_draw_viewer_menu = [&]()
