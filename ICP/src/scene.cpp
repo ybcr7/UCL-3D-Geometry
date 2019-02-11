@@ -9,7 +9,7 @@ Scene::Scene(igl::opengl::glfw::Viewer& refViewer):viewer(refViewer){
 
 Scene::~Scene(){}
 
-void Scene::Reset(){
+void Scene::Initialise(){
     
     viewer.data().clear();
 

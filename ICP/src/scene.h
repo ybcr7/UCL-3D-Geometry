@@ -21,7 +21,7 @@ public:
     void Point2PlaneAlign();
     
     // Utility
-    void Reset();
+    void Initialise();
     void DisplayMeshes();
     
     void SetIteration(int i);

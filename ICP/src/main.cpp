@@ -5,26 +5,23 @@
 #include <iostream>
 #include "scene.h"
 
-bool key_down(igl::opengl::glfw::Viewer& viewer, unsigned char key, int modifier){
-	std::cout << "Key: " << key << " " << (unsigned int)key << std::endl;
-	return false;
-}
-
 int main(int argc, char *argv[]){
-	// Init the viewer
+	
+    // Initialise the viewer
 	igl::opengl::glfw::Viewer viewer;
 
 	// Attach a menu plugin
 	igl::opengl::glfw::imgui::ImGuiMenu menu;
 	viewer.plugins.push_back(&menu);
+    
+    Scene scene(viewer);
 
 	// Menu variable Shared between two menus
 	double rotationZValue = 30.0f;
     double gaussianSD = 0.0f;
     int iteration = 50;
 
-    Scene* scene = new Scene(viewer);
-
+    // Draw an optional panel for adjusting global variables
     menu.callback_draw_viewer_menu = [&]()
     {
         // Draw parent menu content
@@ -35,16 +32,17 @@ int main(int argc, char *argv[]){
         {
             if (ImGui::Button("Reset Scene", ImVec2(-1, 0)))
             {
-                scene->Reset();
+                scene.Initialise();
             }
             
             if(ImGui::InputInt("Iteration", &iteration))
             {
-                scene->SetIteration(iteration);
+                scene.SetIteration(iteration);
             }
         }
     };
     
+    // Draw a separate panel for performing tasks
     menu.callback_draw_custom_window = [&]()
     {
         ImGui::SetNextWindowPos(ImVec2(180.f * menu.menu_scaling(), 0), ImGuiSetCond_FirstUseEver);
@@ -54,7 +52,7 @@ int main(int argc, char *argv[]){
         if (ImGui::CollapsingHeader("Task 1", ImGuiTreeNodeFlags_NoAutoOpenOnLog))
         {
             if (ImGui::Button("Align Meshes", ImVec2(-1, 0))){
-                scene->Point2PointAlign();
+                scene.Point2PointAlign();
             }
         }
         
@@ -64,40 +62,37 @@ int main(int argc, char *argv[]){
             ImGui::InputDouble("Zero-Mean Gaussian SD", &gaussianSD, 0, 0, "%.4f");
             
             if (ImGui::Button("Rotate Mesh with Noise", ImVec2(-1, 0))){
-                scene->RotateMeshWithNoise(rotationZValue,gaussianSD);
+                scene.RotateMeshWithNoise(rotationZValue,gaussianSD);
             }
             
             if (ImGui::Button("Align Meshes", ImVec2(-1, 0))){
-                scene->Point2PointAlign();
+                scene.Point2PointAlign();
             }
             
             if (ImGui::Button("Align Meshes (Optimised)", ImVec2(-1, 0))){
-                scene->Point2PointAlignOptimised();
+                scene.Point2PointAlignOptimised();
             }
         }
         
         if (ImGui::CollapsingHeader("Task 5", ImGuiTreeNodeFlags_NoAutoOpenOnLog))
         {
             if (ImGui::Button("Align Multiple Meshes", ImVec2(-1, 0))){
-                scene->MuiltMeshAlign();
+                scene.MuiltMeshAlign();
             }
         }
         
         if (ImGui::CollapsingHeader("Task 6", ImGuiTreeNodeFlags_NoAutoOpenOnLog))
         {
             if (ImGui::Button("Align Meshes (Normal-Based)", ImVec2(-1, 0))){
-                scene->Point2PlaneAlign();
+                scene.Point2PlaneAlign();
             }
         }
         
         ImGui::End();
     };
 
-	// Registered a event handler
-	viewer.callback_key_down = &key_down;
-
-    // Init the scene
-	scene->Reset();
+    // Initialise the scene
+	scene.Initialise();
 
 	// Call GUI
 	viewer.launch();
