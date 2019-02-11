@@ -22,8 +22,7 @@ public:
     
     // Utility
     void Initialise();
-    void DisplayMeshes();
-    
+    void VisualiseData(int i);
     void SetIteration(int i);
     
 private:
@@ -38,4 +37,7 @@ private:
     
     int iteration;
     
+    struct RenderingData;
+    
+    std::vector<RenderingData> rendering_data;
 };

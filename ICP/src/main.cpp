@@ -21,7 +21,8 @@ int main(int argc, char *argv[]){
     double rotation_y = 0.0;
     double rotation_z = 0.0;
     double gaussian_sd = 0.0;
-    int iteration = 1;
+    int iteration = 30;
+    int frame = 1;
 
     // Draw an optional panel for adjusting global variables
     menu.callback_draw_viewer_menu = [&]()
@@ -40,6 +41,11 @@ int main(int argc, char *argv[]){
             if(ImGui::InputInt("Iteration", &iteration))
             {
                 scene.SetIteration(iteration);
+            }
+            
+            if(ImGui::InputInt("@Frame", &frame))
+            {
+                scene.VisualiseData(frame);
             }
         }
     };
