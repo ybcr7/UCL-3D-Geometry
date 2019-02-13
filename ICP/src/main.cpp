@@ -43,9 +43,9 @@ int main(int argc, char *argv[]){
                 scene.SetIteration(iteration);
             }
             
-            if(ImGui::InputInt("@Frame", &frame))
+            if(ImGui::InputInt("Frame", &frame))
             {
-                scene.VisualiseData(frame);
+                scene.Visualise(frame);
             }
         }
     };
@@ -54,17 +54,17 @@ int main(int argc, char *argv[]){
     menu.callback_draw_custom_window = [&]()
     {
         ImGui::SetNextWindowPos(ImVec2(180.f * menu.menu_scaling(), 0), ImGuiSetCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(512, 128), ImGuiSetCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(448, 384), ImGuiSetCond_FirstUseEver);
         ImGui::Begin( "Operations", nullptr, ImGuiWindowFlags_NoSavedSettings );
         
-        if (ImGui::CollapsingHeader("Task 1", ImGuiTreeNodeFlags_NoAutoOpenOnLog))
+        if (ImGui::CollapsingHeader("Task 1", ImGuiTreeNodeFlags_DefaultOpen))
         {
             if (ImGui::Button("Align Meshes", ImVec2(-1, 0))){
                 scene.Point2PointAlign();
             }
         }
         
-        if (ImGui::CollapsingHeader("Task 2 ~ 4", ImGuiTreeNodeFlags_NoAutoOpenOnLog))
+        if (ImGui::CollapsingHeader("Task 2 ~ 4", ImGuiTreeNodeFlags_DefaultOpen))
         {
             ImGui::InputDouble("Degree (X-Axis)", &rotation_x, 0, 0, "%.4f");
             ImGui::InputDouble("Degree (Y-Axis)", &rotation_y, 0, 0, "%.4f");
@@ -84,14 +84,18 @@ int main(int argc, char *argv[]){
             }
         }
         
-        if (ImGui::CollapsingHeader("Task 5", ImGuiTreeNodeFlags_NoAutoOpenOnLog))
+        if (ImGui::CollapsingHeader("Task 5", ImGuiTreeNodeFlags_DefaultOpen))
         {
+            if (ImGui::Button("Load Multiple Meshes", ImVec2(-1, 0))){
+                scene.LoadMultiple();
+            }
+            
             if (ImGui::Button("Align Multiple Meshes", ImVec2(-1, 0))){
                 scene.MuiltMeshAlign();
             }
         }
         
-        if (ImGui::CollapsingHeader("Task 6", ImGuiTreeNodeFlags_NoAutoOpenOnLog))
+        if (ImGui::CollapsingHeader("Task 6", ImGuiTreeNodeFlags_DefaultOpen))
         {
             if (ImGui::Button("Align Meshes (Normal-Based)", ImVec2(-1, 0))){
                 scene.Point2PlaneAlign();

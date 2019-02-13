@@ -1,8 +1,14 @@
 #include <Eigen/Dense>
+#include <Eigen/SVD>
 #include <random>
 #include <iostream>
 #include "nanoflann.hpp"
 #include "icp.h"
+
+struct ICP::MeshFF{
+    Eigen::MatrixXi F1;
+    Eigen::MatrixXi F2;
+};
 
 struct ICP::Transform{
     Eigen::Matrix3d R;
@@ -16,33 +22,17 @@ ICP::Transform ICP::EstimateRigidTransform(Eigen::MatrixXd V_to_process, Eigen::
     // t = p_bar - R*q_bar
     // R can be estimated from min(R) Sigma_i ||p_hat_i - R* q_hat_i||^2
     
-    //std::cout << V_target.row(0) << std::endl;
-    //std::cout << V_matched.row(0) << std::endl;
-    
     Transform transform;
     
     // Define Barycenters
-    
-//    std::cout << V_to_process.rows() << std::endl;
-//    std::cout << V_matched.rows() << std::endl;
-    
     // p_bar = 1/m sigma p_i => average
     Eigen::RowVector3d p_bar = V_to_process.colwise().mean();
     Eigen::RowVector3d q_bar = V_matched.colwise().mean();
     
-    //std::cout << p_bar << std::endl;
-    //std::cout << q_bar << std::endl;
-    
     Eigen::MatrixXd p_hat = V_to_process.rowwise() - p_bar;
     Eigen::MatrixXd q_hat = V_matched.rowwise() - q_bar;
     
-    //std::cout << p_hat.row(0) << std::endl;
-    //std::cout << q_hat.row(0) << std::endl;
-    
-    //std::cout << q_hat.row(0)*(p_hat.row(0).transpose()) << std::endl;
-    
     // Construct A
-    
     Eigen::Matrix3d A;
     A.setZero();
     
@@ -54,17 +44,12 @@ ICP::Transform ICP::EstimateRigidTransform(Eigen::MatrixXd V_to_process, Eigen::
         A += q_i * p_i.transpose();
     }
     
-    //std::cout << A << std::endl;
-    
-    Eigen::JacobiSVD<Eigen::MatrixXd> svd(A, Eigen::DecompositionOptions::ComputeThinU| Eigen::DecompositionOptions::ComputeThinV);
+    Eigen::JacobiSVD<Eigen::MatrixXd> svd(A, Eigen::ComputeThinU| Eigen::ComputeThinV);
     Eigen::MatrixXd R = svd.matrixV() * svd.matrixU().transpose();
     Eigen::RowVector3d T = p_bar - R * q_bar;
 
     transform.R = R;
     transform.T = T;
-
-    std::cout << transform.R << std::endl;
-    std::cout << transform.T << std::endl;
     
     return transform;
 
@@ -112,6 +97,89 @@ Eigen::MatrixXd ICP::FindCorrespondences(Eigen::MatrixXd V_target, Eigen::Matrix
     return V_out;
 }
 
+
+std::pair<Eigen::MatrixXi, Eigen::MatrixXi> ICP::FindNonOverlappingFaces(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process, Eigen::MatrixXi F_to_process){
+    
+    // Initialise output matrix
+    std::vector<int> V_index;
+    std::vector<Eigen::Vector3i> F_out1;
+    Eigen::MatrixXi F_out2(0,3);
+    Eigen::MatrixXi F_out3(0,3);
+    Eigen::Vector3i empty (-1,-1,-1);
+    
+    const size_t num_result = 1;
+    const size_t max_leaf = 10;
+    const double threshold = 0.00001;
+
+    // Generate the KD tree with nanoflann
+    nanoflann::KDTreeEigenMatrixAdaptor<Eigen::MatrixXd> kd_tree_index(V_target, max_leaf);
+    kd_tree_index.index->buildIndex();
+
+    // For each vertex
+    for (size_t v=0; v<V_to_process.rows(); v++){
+
+        // Pick the current vertex for query
+        Eigen::RowVector3d query_vertex = V_to_process.row(v);
+
+        // Create a query object
+        std::vector<size_t> indexes(num_result);
+        std::vector<double> dists_sqr(num_result);
+
+        // Find the closest 1 vertex
+        nanoflann::KNNResultSet<double> result(num_result);
+        result.init(indexes.data(), dists_sqr.data());
+        kd_tree_index.index->findNeighbors(result, query_vertex.data(), nanoflann::SearchParams(max_leaf));
+
+        //
+        //std::cout << dists_sqr[0] << std::endl;
+
+        if (dists_sqr[0] > threshold){
+            //std::cout << "Found" << std::endl;
+            V_index.push_back(v);
+        }
+    }
+//
+    for (size_t f=0; f<F_to_process.rows(); f++){
+        F_out1.push_back(F_to_process.row(f));
+    }
+    
+    for (size_t f=0; f<F_out1.size(); f++){
+        
+        for (size_t i=0; i < V_index.size(); i ++){
+            
+            for (size_t k=0; k<F_out1[f].size(); k++){
+                
+                if (F_out1[f][k] == V_index[i]){
+                    
+                    F_out2.conservativeResize(F_out2.rows()+1, 3);
+                    
+                    F_out2.row(F_out2.rows()-1) = F_to_process.row(f);
+                    
+                    F_out1[f] = empty;
+                    
+                    break;
+                }
+            }
+        }
+    }
+
+    for (size_t i=0; i <F_out1.size(); i++){
+        if (F_out1[i] != empty){
+            F_out3.conservativeResize(F_out3.rows()+1, 3);
+            F_out3.row(F_out3.rows()-1) = F_out1[i];
+        }
+    }
+
+    std::cout << F_to_process.rows() << std::endl;
+    std::cout << F_out3.rows() <<std::endl;
+    std::cout << F_out2.rows() <<std::endl;
+    std::cout << F_out1.size() <<std::endl;
+    
+    return std::pair<Eigen::MatrixXi, Eigen::MatrixXi>(F_out3, F_out2);
+    
+}
+
+
 Eigen::MatrixXd ICP::Rotate(Eigen::MatrixXd V_in, double x, double y, double z){
     
     // Initialise
@@ -154,7 +222,7 @@ Eigen::MatrixXd ICP::AddNoise(Eigen::MatrixXd V_in, double sd){
     
 }
 
-Eigen::MatrixXd ICP::ICPBasic(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process, size_t iteration){
+Eigen::MatrixXd ICP::ICPBasic(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process){
     
     Eigen::MatrixXd V_out;
     V_out.resize(V_to_process.rows(), V_to_process.cols());
@@ -175,7 +243,7 @@ Eigen::MatrixXd ICP::ICPBasic(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_pro
 }
 
 
-//Eigen::MatrixXd ICP::ICPOptimised(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process, size_t scale, size_t iteration){
+//Eigen::MatrixXd ICP::ICPOptimised(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process, size_t scale){
 //
 //    Eigen::MatrixXd V_processed;
 //

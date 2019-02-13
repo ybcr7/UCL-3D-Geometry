@@ -1,4 +1,4 @@
-// Scene manager for loading, allocating tasks and displaying meshes
+// Scene manager for loading, allocating tasks and displaying data
 class Scene
 {
 public:
@@ -15,6 +15,7 @@ public:
     void Point2PointAlignOptimised();
     
     // Task 5
+    void LoadMultiple();
     void MuiltMeshAlign();
     
     // Task 6
@@ -22,7 +23,7 @@ public:
     
     // Utility
     void Initialise();
-    void VisualiseData(int i);
+    void Visualise(int i);
     void SetIteration(int i);
     
 private:
@@ -32,12 +33,8 @@ private:
     Eigen::MatrixXd V1, V2, V3, V4, V5;
     Eigen::MatrixXi F1, F2, F3, F4, F5;
     
-    std::vector<Eigen::MatrixXd> Vs;
-    std::vector<Eigen::MatrixXi> Fs;
-    
     int iteration;
     
     struct RenderingData;
-    
     std::vector<RenderingData> rendering_data;
 };
