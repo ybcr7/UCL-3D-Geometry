@@ -217,10 +217,10 @@ Eigen::MatrixXd ICP::ICPBasic(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_pro
     Eigen::MatrixXd V_out;
     V_out.resize(V_to_process.rows(), V_to_process.cols());
     V_out.setZero();
-    
+
     Eigen::MatrixXd V_matched = FindCorrespondences(V_target, V_to_process);
     Transform transform = EstimateRigidTransform(V_to_process, V_matched);
-    
+
     for (size_t i=0;i<V_to_process.rows();i++){
         
         Eigen::Vector3d row = V_to_process.row(i);

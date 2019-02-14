@@ -13,6 +13,7 @@ struct Scene::RenderingData{
 
 Scene::Scene(igl::opengl::glfw::Viewer& refViewer):viewer(refViewer){
     iteration = 30;
+    mark_out = false;
 }
 
 Scene::~Scene(){}
@@ -60,7 +61,7 @@ void Scene::Point2PointAlign(){
         Eigen::RowVector3d(1.0,0.5,0.25).replicate(F1.rows(),1),
         Eigen::RowVector3d(1.0,0.8,0.0).replicate(F2.rows(),1);
         
-        if (i+1==iteration){
+        if (mark_out && i+1==iteration){
             
             // Find non-overlapping area
             // Vx to V1
@@ -343,6 +344,11 @@ void Scene::SetIteration(int i){
     }else{
         iteration = i;
     }
+}
+
+
+void Scene::SetMarkOut(bool b) {
+    mark_out = b;
 }
 
 void Scene::Visualise(int i){

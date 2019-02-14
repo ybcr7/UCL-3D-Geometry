@@ -23,6 +23,7 @@ int main(int argc, char *argv[]){
     double gaussian_sd = 0.0;
     int iteration = 30;
     int frame = 1;
+    bool mark_out = false;
 
     // Draw an optional panel for adjusting global variables
     menu.callback_draw_viewer_menu = [&]()
@@ -42,7 +43,12 @@ int main(int argc, char *argv[]){
             {
                 scene.SetIteration(iteration);
             }
-            
+
+            if (ImGui::Checkbox("Show Non-Overlapping Area", &mark_out))
+            {
+                scene.SetMarkOut(mark_out);
+            }
+
             if(ImGui::InputInt("Frame", &frame))
             {
                 scene.Visualise(frame);
@@ -56,7 +62,7 @@ int main(int argc, char *argv[]){
         ImGui::SetNextWindowPos(ImVec2(180.f * menu.menu_scaling(), 0), ImGuiSetCond_FirstUseEver);
         ImGui::SetNextWindowSize(ImVec2(448, 384), ImGuiSetCond_FirstUseEver);
         ImGui::Begin( "Operations", nullptr, ImGuiWindowFlags_NoSavedSettings );
-        
+
         if (ImGui::CollapsingHeader("Task 1", ImGuiTreeNodeFlags_DefaultOpen))
         {
             if (ImGui::Button("Align Meshes", ImVec2(-1, 0))){

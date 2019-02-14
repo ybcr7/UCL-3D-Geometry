@@ -25,6 +25,7 @@ public:
     void Initialise();
     void Visualise(int i);
     void SetIteration(int i);
+    void SetMarkOut(bool b);
     
 private:
     
@@ -34,6 +35,7 @@ private:
     Eigen::MatrixXi F1, F2, F3, F4, F5;
     
     int iteration;
+    bool mark_out;
     
     struct RenderingData;
     std::vector<RenderingData> rendering_data;
