@@ -3,10 +3,15 @@
 #include <igl/opengl/glfw/imgui/ImGuiHelpers.h>
 #include <imgui/imgui.h>
 #include <iostream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 #include "scene.h"
 
 int main(int argc, char *argv[]){
-	
+
+    srand (time(NULL));
+
     // Initialise the viewer
 	igl::opengl::glfw::Viewer viewer;
 
@@ -22,6 +27,7 @@ int main(int argc, char *argv[]){
     double rotation_z = 0.0;
     double gaussian_sd = 0.0;
     int iteration = 30;
+    double subsample_rate = 0.0;
     int frame = 1;
     bool mark_out = false;
 
@@ -70,13 +76,18 @@ int main(int argc, char *argv[]){
             }
         }
         
-        if (ImGui::CollapsingHeader("Task 2 ~ 4", ImGuiTreeNodeFlags_DefaultOpen))
+        if (ImGui::CollapsingHeader("Task 2 ~ 3", ImGuiTreeNodeFlags_DefaultOpen))
         {
             ImGui::InputDouble("Degree (X-Axis)", &rotation_x, 0, 0, "%.4f");
             ImGui::InputDouble("Degree (Y-Axis)", &rotation_y, 0, 0, "%.4f");
             ImGui::InputDouble("Degree (Z-Axis)", &rotation_z, 0, 0, "%.4f");
             ImGui::InputDouble("Zero-Mean Gaussian SD", &gaussian_sd, 0, 0, "%.4f");
-            
+
+            if(ImGui::InputDouble("Subsample Rate %", &subsample_rate, 0, 0, "%.4f"))
+            {
+                scene.SetSubsampleRate(subsample_rate);
+            }
+
             if (ImGui::Button("Rotate Mesh with Noise", ImVec2(-1, 0))){
                 scene.RotateMeshWithNoise(rotation_x,rotation_y,rotation_z,gaussian_sd);
             }
@@ -97,7 +108,7 @@ int main(int argc, char *argv[]){
             }
             
             if (ImGui::Button("Align Multiple Meshes", ImVec2(-1, 0))){
-                scene.MuiltMeshAlign();
+                scene.MultiMeshAlign();
             }
         }
         

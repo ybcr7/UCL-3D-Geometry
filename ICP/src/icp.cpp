@@ -2,22 +2,70 @@
 #include <Eigen/SVD>
 #include <random>
 #include <iostream>
+#include <math.h>
+#include <time.h>
 #include "nanoflann.hpp"
 #include "icp.h"
 
-struct ICP::Transform{
-    Eigen::Matrix3d R;
-    Eigen::RowVector3d T;
-    Eigen::RowVector3d S;
-};
+Eigen::MatrixXd ICP::ApplyRigidTransform(Eigen::MatrixXd V_to_process, std::pair<Eigen::Matrix3d, Eigen::RowVector3d> transform){
 
-ICP::Transform ICP::EstimateRigidTransform(Eigen::MatrixXd V_to_process, Eigen::MatrixXd V_matched){
+    Eigen::MatrixXd V_out;
+    V_out.resize(V_to_process.rows(), V_to_process.cols());
+    V_out.setZero();
+
+    for (size_t i=0;i<V_to_process.rows();i++){
+        Eigen::Vector3d row = V_to_process.row(i);
+        V_out.row(i) = (row.transpose() * transform.first - transform.second).transpose();
+
+    }
+
+    return V_out;
+}
+
+Eigen::MatrixXd ICP::GetSubsample(Eigen::MatrixXd V_to_process, double subsample_rate){
+
+    std::vector<Eigen::Vector3d> V_raw;
+    std::vector<Eigen::Vector3d> V_subsampled;
+    Eigen::MatrixXd V_out(0,3);
+
+    for (size_t f=0; f<V_to_process.rows(); f++){
+        V_raw.push_back(V_to_process.row(f));
+    }
+
+    int subsample_vertex = round(V_to_process.rows()*(subsample_rate/100));
+    //std::cout << subsample_vertex << std::endl;
+    for (int i = 0; i < subsample_vertex; i++){
+        int rand_index = rand() % V_raw.size();
+        //V_subsampled.push_back(V_raw[rand_index]);
+        V_raw.erase(V_raw.begin() + rand_index);
+    }
+
+
+
+    for (size_t i=0; i <V_raw.size(); i++){
+        V_out.conservativeResize(V_out.rows()+1, 3);
+        V_out.row(V_out.rows()-1) = V_raw[i];
+    }
+
+
+    std::cout << V_to_process.rows() << std::endl;
+    std::cout << V_out.rows() << std::endl;
+//
+//    for (size_t i=0; i <V_subsampled.size(); i++){
+//        V_out.conservativeResize(V_out.rows()+1, 3);
+//        V_out.row(V_out.rows()-1) = V_subsampled[i];
+//    }
+
+    return V_out;
+}
+
+std::pair<Eigen::Matrix3d, Eigen::RowVector3d> ICP::EstimateRigidTransform(Eigen::MatrixXd V_to_process, Eigen::MatrixXd V_matched){
     
-    // The rigid transform can be estimiated from min(R,t) Sigma_i ||p_i - R*q_i - t||^2
+    // The rigid transform can be estimated from min(R,t) Sigma_i ||p_i - R*q_i - t||^2
     // t = p_bar - R*q_bar
     // R can be estimated from min(R) Sigma_i ||p_hat_i - R* q_hat_i||^2
-    
-    Transform transform;
+
+    std::pair<Eigen::Matrix3d, Eigen::RowVector3d> transform;
     
     // Define Barycenters
     // p_bar = 1/m sigma p_i => average
@@ -43,8 +91,8 @@ ICP::Transform ICP::EstimateRigidTransform(Eigen::MatrixXd V_to_process, Eigen::
     Eigen::MatrixXd R = svd.matrixV() * svd.matrixU().transpose();
     Eigen::RowVector3d T = p_bar - R * q_bar;
 
-    transform.R = R;
-    transform.T = T;
+    transform.first = R;
+    transform.second = T;
     
     return transform;
 
@@ -52,7 +100,7 @@ ICP::Transform ICP::EstimateRigidTransform(Eigen::MatrixXd V_to_process, Eigen::
 
 Eigen::MatrixXd RejectErrors(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process){
 
-
+    return V_to_process;
 }
 
 Eigen::MatrixXd ICP::FindCorrespondences(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process){
@@ -91,7 +139,6 @@ Eigen::MatrixXd ICP::FindCorrespondences(Eigen::MatrixXd V_target, Eigen::Matrix
     
     return V_out;
 }
-
 
 std::pair<Eigen::MatrixXi, Eigen::MatrixXi> ICP::FindNonOverlappingFaces(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process, Eigen::MatrixXi F_to_process){
     
@@ -169,7 +216,6 @@ std::pair<Eigen::MatrixXi, Eigen::MatrixXi> ICP::FindNonOverlappingFaces(Eigen::
     
 }
 
-
 Eigen::MatrixXd ICP::Rotate(Eigen::MatrixXd V_in, double x, double y, double z){
     
     // Initialise
@@ -213,36 +259,20 @@ Eigen::MatrixXd ICP::AddNoise(Eigen::MatrixXd V_in, double sd){
 }
 
 Eigen::MatrixXd ICP::ICPBasic(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process){
-    
-    Eigen::MatrixXd V_out;
-    V_out.resize(V_to_process.rows(), V_to_process.cols());
-    V_out.setZero();
 
     Eigen::MatrixXd V_matched = FindCorrespondences(V_target, V_to_process);
-    Transform transform = EstimateRigidTransform(V_to_process, V_matched);
+    std::pair<Eigen::Matrix3d, Eigen::RowVector3d> transform = EstimateRigidTransform(V_to_process, V_matched);
+    return ApplyRigidTransform(V_to_process, transform);
 
-    for (size_t i=0;i<V_to_process.rows();i++){
-        
-        Eigen::Vector3d row = V_to_process.row(i);
-        V_out.row(i) = (row.transpose() * transform.R - transform.T).transpose();
-        
-    }
-    
-    return V_out;
-    
 }
 
-
-//Eigen::MatrixXd ICP::ICPOptimised(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process, size_t scale){
-//
-//    Eigen::MatrixXd V_processed;
-//
-//    V_processed = GetSubsample(V_to_process, scale);
-//
-//    V_processed = FindCorrespondences(V_target, V_processed);
-//
-//    EstimateRigidTransform(V_target, V_processed);
-//
-//    return V_processed;
-//
+//Eigen::MatrixXd ICP::ICPAdvanced(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process, int subsample_rate, int mode){
+//    if (mode == 0){
+//        return ICPOptimised(V_target, V_to_process, subsample_rate);
+//    }else if(mode == 1){
+//        return ICPNormalBased(V_target, V_to_process);
+//    }else{
+//        std::cout << "Invalid Operation" << std::endl;
+//        return V_to_process;
+//    }
 //}

@@ -16,7 +16,7 @@ public:
     
     // Task 5
     void LoadMultiple();
-    void MuiltMeshAlign();
+    void MultiMeshAlign();
     
     // Task 6
     void Point2PlaneAlign();
@@ -26,6 +26,7 @@ public:
     void Visualise(int i);
     void SetIteration(int i);
     void SetMarkOut(bool b);
+    void SetSubsampleRate(double s);
     
 private:
     
@@ -35,6 +36,7 @@ private:
     Eigen::MatrixXi F1, F2, F3, F4, F5;
     
     int iteration;
+    double subsample_rate;
     bool mark_out;
     
     struct RenderingData;

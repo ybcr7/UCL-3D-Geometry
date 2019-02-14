@@ -13,6 +13,7 @@ struct Scene::RenderingData{
 
 Scene::Scene(igl::opengl::glfw::Viewer& refViewer):viewer(refViewer){
     iteration = 30;
+    subsample_rate = 0;
     mark_out = false;
 }
 
@@ -27,7 +28,6 @@ void Scene::Initialise(){
 
     Eigen::MatrixXd V(V1.rows()+V2.rows(), V1.cols());
     V << V1,V2;
-
     Eigen::MatrixXi F(F1.rows()+F2.rows(),F1.cols());
     F << F1,(F2.array()+V1.rows());
     Eigen::MatrixXd C(F.rows(),3);
@@ -48,12 +48,15 @@ void Scene::Point2PointAlign(){
     Eigen::MatrixXd Vx = V2;
     
     for (size_t i=0; i<iteration;i++){
-        
-        Vx = ICP::ICPBasic(V1, Vx);
-        
+
+        // Basic ICP algorithm
+        Eigen::MatrixXd V_matched = ICP::FindCorrespondences(V1, Vx);
+        std::pair<Eigen::Matrix3d, Eigen::RowVector3d> transform = ICP::EstimateRigidTransform(Vx, V_matched);
+        Vx = ICP::ApplyRigidTransform(Vx, transform);
+
+        // Generate data and store them for display
         Eigen::MatrixXd V(V1.rows()+Vx.rows(), V1.cols());
         V << V1,Vx;
-        
         Eigen::MatrixXi F(F1.rows()+F2.rows(),F1.cols());
         F << F1,(F2.array()+V1.rows());
         Eigen::MatrixXd C(F.rows(),3);
@@ -88,7 +91,7 @@ void Scene::Point2PointAlign(){
         }
         
     }
-    
+
     Visualise(rendering_data.size());
 
 }
@@ -125,15 +128,64 @@ void Scene::RotateMeshWithNoise(double x, double y, double z, double sd){
 }
 
 void Scene::Point2PointAlignOptimised(){
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
+    rendering_data.clear();
+
+    Eigen::MatrixXd Vx = V2;
+
+    // Get a subsample from V2
+    Eigen::MatrixXd Vs = ICP::GetSubsample(V2, subsample_rate);
+
+    // Use the subsample to perform ICP algorithm
+    for (size_t i=0; i<iteration;i++){
+
+
+        Eigen::MatrixXd V_matched = ICP::FindCorrespondences(V1, Vs);
+        std::pair<Eigen::Matrix3d, Eigen::RowVector3d> transform = ICP::EstimateRigidTransform(Vs, V_matched);
+        Vs = ICP::ApplyRigidTransform(Vs, transform);
+
+        // Also apply the transform to the original V2 so that we can see how the estimated transforms from subsamples can affect the final result
+        Vx = ICP::ApplyRigidTransform(Vx, transform);
+
+        // Generate data and store them for display
+        Eigen::MatrixXd V(V1.rows()+Vx.rows(), V1.cols());
+        V << V1,Vx;
+        Eigen::MatrixXi F(F1.rows()+F2.rows(),F1.cols());
+        F << F1,(F2.array()+V1.rows());
+        Eigen::MatrixXd C(F.rows(),3);
+        C <<
+          Eigen::RowVector3d(1.0,0.5,0.25).replicate(F1.rows(),1),
+                Eigen::RowVector3d(1.0,0.8,0.0).replicate(F2.rows(),1);
+
+        if (mark_out && i+1==iteration){
+
+            // Find non-overlapping area
+            // Vx to V1
+            std::pair<Eigen::MatrixXi, Eigen::MatrixXi> FF2 = ICP::FindNonOverlappingFaces(V1, Vx, F2);
+            // V1 to Vx
+            std::pair<Eigen::MatrixXi, Eigen::MatrixXi> FF1 = ICP::FindNonOverlappingFaces(Vx, V1, F1);
+
+            Eigen::MatrixXd V(V1.rows() + V1.rows() + Vx.rows()+ Vx.rows(), V1.cols());
+            V << V1,V1,Vx,Vx;
+
+            Eigen::MatrixXi F(FF1.first.rows()+FF1.second.rows()+FF2.first.rows()+FF2.second.rows(),F1.cols());
+            F << FF1.first, (FF1.second.array()+V1.rows()), (FF2.first.array()+V1.rows()+V1.rows()),(FF2.second.array()+Vx.rows() + V1.rows()+V1.rows());
+
+            Eigen::MatrixXd C(F.rows(),3);
+            C <<
+              Eigen::RowVector3d(1.0,0.8,0.0).replicate(FF1.first.rows(),1),
+                    Eigen::RowVector3d(1.0,0.0,0.0).replicate(FF1.second.rows(),1),
+                    Eigen::RowVector3d(1.0,0.5,0.25).replicate(FF2.first.rows(),1),
+                    Eigen::RowVector3d(1.0,0.0,0.0).replicate(FF2.second.rows(),1);
+
+            rendering_data.push_back(RenderingData{V,F,C});
+        }else{
+            rendering_data.push_back(RenderingData{V,F,C});
+        }
+    }
+
+    Visualise(rendering_data.size());
+
 }
 
 void Scene::LoadMultiple(){
@@ -166,9 +218,7 @@ void Scene::LoadMultiple(){
     Visualise(rendering_data.size());
 }
 
-
-
-void Scene::MuiltMeshAlign(){
+void Scene::MultiMeshAlign(){
     
     Eigen::MatrixXd V1r = V1;
     Eigen::MatrixXi F1r = F1;
@@ -331,7 +381,6 @@ void Scene::MuiltMeshAlign(){
     Visualise(rendering_data.size());
 }
 
-
 void Scene::Point2PlaneAlign(){
     
     
@@ -346,7 +395,6 @@ void Scene::SetIteration(int i){
     }
 }
 
-
 void Scene::SetMarkOut(bool b) {
     mark_out = b;
 }
@@ -357,7 +405,16 @@ void Scene::Visualise(int i){
         viewer.data().set_mesh(rendering_data[i-1].V, rendering_data[i-1].F);
         viewer.data().set_colors(rendering_data[i-1].C);
         viewer.data().set_face_based(true);
-    }else{
+    }else {
         viewer.data().clear();
     }
+}
+
+void Scene::SetSubsampleRate(double s){
+    if (s >= 0 && s <= 99){
+        subsample_rate = s;
+    }else {
+        subsample_rate = 0;
+    }
+    std::cout << "Subsample Rate: " + std::to_string(subsample_rate) + "%" << std::endl;
 }
