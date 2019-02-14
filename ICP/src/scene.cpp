@@ -3,6 +3,8 @@
 #include "scene.h"
 #include "icp.h"
 
+#define FILE_PATH "../data/"
+
 struct Scene::RenderingData{
     Eigen::MatrixXd V;
     Eigen::MatrixXi F;
@@ -19,8 +21,8 @@ void Scene::Initialise(){
     
     rendering_data.clear();
 
-    igl::readOFF("../data/bun000.off", V1, F1);
-    igl::readOFF("../data/bun045.off", V2, F2);
+    igl::readOFF(FILE_PATH "bun000.off", V1, F1);
+    igl::readOFF(FILE_PATH "bun045.off", V2, F2);
 
     Eigen::MatrixXd V(V1.rows()+V2.rows(), V1.cols());
     V << V1,V2;
@@ -66,11 +68,9 @@ void Scene::Point2PointAlign(){
             // V1 to Vx
             std::pair<Eigen::MatrixXi, Eigen::MatrixXi> FF1 = ICP::FindNonOverlappingFaces(Vx, V1, F1);
 
-            // No changes to vertex
             Eigen::MatrixXd V(V1.rows() + V1.rows() + Vx.rows()+ Vx.rows(), V1.cols());
             V << V1,V1,Vx,Vx;
             
-            //
             Eigen::MatrixXi F(FF1.first.rows()+FF1.second.rows()+FF2.first.rows()+FF2.second.rows(),F1.cols());
             F << FF1.first, (FF1.second.array()+V1.rows()), (FF2.first.array()+V1.rows()+V1.rows()),(FF2.second.array()+Vx.rows() + V1.rows()+V1.rows());
             
@@ -83,7 +83,6 @@ void Scene::Point2PointAlign(){
             
             rendering_data.push_back(RenderingData{V,F,C});
         }else{
-
             rendering_data.push_back(RenderingData{V,F,C});
         }
         
@@ -98,7 +97,7 @@ void Scene::RotateMeshWithNoise(double x, double y, double z, double sd){
     rendering_data.clear();
     
     // Load M1
-    igl::readOFF("../data/bun000.off", V1, F1);
+    igl::readOFF(FILE_PATH "bun000.off", V1, F1);
     
     // M2 = R(M1), vertex positions are changed while the face relation remains
     V2 = ICP::Rotate(V1, x, y, z);
@@ -140,11 +139,11 @@ void Scene::LoadMultiple(){
     
     rendering_data.clear();
     
-    igl::readOFF("../data/bun000.off", V1, F1);
-    igl::readOFF("../data/bun045.off", V2, F2);
-    igl::readOFF("../data/bun315.off", V3, F3);
-    igl::readOFF("../data/bun090.off", V4, F4);
-    igl::readOFF("../data/bun270.off", V5, F5);
+    igl::readOFF(FILE_PATH "bun000.off", V1, F1);
+    igl::readOFF(FILE_PATH "bun045.off", V2, F2);
+    igl::readOFF(FILE_PATH "bun315.off", V3, F3);
+    igl::readOFF(FILE_PATH "bun090.off", V4, F4);
+    igl::readOFF(FILE_PATH "bun270.off", V5, F5);
     
     // Display meshes
     Eigen::MatrixXd V(V1.rows()+V2.rows()+V3.rows()+V4.rows()+V5.rows(), V1.cols());

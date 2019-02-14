@@ -1,8 +1,6 @@
 // Global static functions
 
 namespace ICP{
-
-    struct MeshFF;
     
     struct Transform;
     

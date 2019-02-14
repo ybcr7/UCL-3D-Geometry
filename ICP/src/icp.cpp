@@ -5,11 +5,6 @@
 #include "nanoflann.hpp"
 #include "icp.h"
 
-struct ICP::MeshFF{
-    Eigen::MatrixXi F1;
-    Eigen::MatrixXi F2;
-};
-
 struct ICP::Transform{
     Eigen::Matrix3d R;
     Eigen::RowVector3d T;
@@ -101,10 +96,10 @@ Eigen::MatrixXd ICP::FindCorrespondences(Eigen::MatrixXd V_target, Eigen::Matrix
 std::pair<Eigen::MatrixXi, Eigen::MatrixXi> ICP::FindNonOverlappingFaces(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process, Eigen::MatrixXi F_to_process){
     
     // Initialise output matrix
-    std::vector<int> V_index;
-    std::vector<Eigen::Vector3i> F_out1;
-    Eigen::MatrixXi F_out2(0,3);
-    Eigen::MatrixXi F_out3(0,3);
+    std::vector<int> V_distant;
+    std::vector<Eigen::Vector3i> F_raw;
+    Eigen::MatrixXi F_non_overlap(0,3);
+    Eigen::MatrixXi F_overlap(0,3);
     Eigen::Vector3i empty (-1,-1,-1);
     
     const size_t num_result = 1;
@@ -130,32 +125,30 @@ std::pair<Eigen::MatrixXi, Eigen::MatrixXi> ICP::FindNonOverlappingFaces(Eigen::
         result.init(indexes.data(), dists_sqr.data());
         kd_tree_index.index->findNeighbors(result, query_vertex.data(), nanoflann::SearchParams(max_leaf));
 
-        //
-        //std::cout << dists_sqr[0] << std::endl;
-
+        // Check if it is distant
         if (dists_sqr[0] > threshold){
-            //std::cout << "Found" << std::endl;
-            V_index.push_back(v);
+            V_distant.push_back(v);
         }
     }
-//
+
     for (size_t f=0; f<F_to_process.rows(); f++){
-        F_out1.push_back(F_to_process.row(f));
+        F_raw.push_back(F_to_process.row(f));
     }
-    
-    for (size_t f=0; f<F_out1.size(); f++){
+
+    // Construct the non-overlapping face list
+    for (size_t f=0; f<F_raw.size(); f++){
         
-        for (size_t i=0; i < V_index.size(); i ++){
+        for (size_t i=0; i < V_distant.size(); i ++){
             
-            for (size_t k=0; k<F_out1[f].size(); k++){
+            for (size_t k=0; k<F_raw[f].size(); k++){
                 
-                if (F_out1[f][k] == V_index[i]){
+                if (F_raw[f][k] == V_distant[i]){
                     
-                    F_out2.conservativeResize(F_out2.rows()+1, 3);
+                    F_non_overlap.conservativeResize(F_non_overlap.rows()+1, 3);
                     
-                    F_out2.row(F_out2.rows()-1) = F_to_process.row(f);
+                    F_non_overlap.row(F_non_overlap.rows()-1) = F_to_process.row(f);
                     
-                    F_out1[f] = empty;
+                    F_raw[f] = empty;
                     
                     break;
                 }
@@ -163,19 +156,16 @@ std::pair<Eigen::MatrixXi, Eigen::MatrixXi> ICP::FindNonOverlappingFaces(Eigen::
         }
     }
 
-    for (size_t i=0; i <F_out1.size(); i++){
-        if (F_out1[i] != empty){
-            F_out3.conservativeResize(F_out3.rows()+1, 3);
-            F_out3.row(F_out3.rows()-1) = F_out1[i];
+    // Construct the overlapping face list
+    for (size_t i=0; i <F_raw.size(); i++){
+        if (F_raw[i] != empty){
+            F_overlap.conservativeResize(F_overlap.rows()+1, 3);
+            F_overlap.row(F_overlap.rows()-1) = F_raw[i];
         }
     }
 
-    std::cout << F_to_process.rows() << std::endl;
-    std::cout << F_out3.rows() <<std::endl;
-    std::cout << F_out2.rows() <<std::endl;
-    std::cout << F_out1.size() <<std::endl;
-    
-    return std::pair<Eigen::MatrixXi, Eigen::MatrixXi>(F_out3, F_out2);
+    // Output
+    return std::pair<Eigen::MatrixXi, Eigen::MatrixXi>(F_overlap, F_non_overlap);
     
 }
 
