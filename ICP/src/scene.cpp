@@ -12,7 +12,7 @@ struct Scene::RenderingData{
 };
 
 Scene::Scene(igl::opengl::glfw::Viewer& refViewer):viewer(refViewer){
-    iteration = 30;
+    iteration = 300;
     subsample_rate = 0;
     mark_out = false;
 }
@@ -44,14 +44,18 @@ void Scene::Initialise(){
 void Scene::Point2PointAlign(){
     
     rendering_data.clear();
-    
+
     Eigen::MatrixXd Vx = V2;
     
     for (size_t i=0; i<iteration;i++){
 
         // Basic ICP algorithm
         Eigen::MatrixXd V_matched = ICP::FindCorrespondences(V1, Vx);
-        std::pair<Eigen::Matrix3d, Eigen::RowVector3d> transform = ICP::EstimateRigidTransform(Vx, V_matched);
+
+        //std::pair<Eigen::MatrixXd, Eigen::MatrixXd> refinedPairs = ICP::RejectPairs(V_matched, Vx);
+        //std::pair<Eigen::Matrix3d, Eigen::RowVector3d> transform = ICP::EstimateRigidTransform(refinedPairs.first,refinedPairs.second);
+
+        std::pair<Eigen::Matrix3d, Eigen::RowVector3d> transform = ICP::EstimateRigidTransform(V_matched, Vx);
         Vx = ICP::ApplyRigidTransform(Vx, transform);
 
         // Generate data and store them for display
@@ -63,33 +67,45 @@ void Scene::Point2PointAlign(){
         C <<
         Eigen::RowVector3d(1.0,0.5,0.25).replicate(F1.rows(),1),
         Eigen::RowVector3d(1.0,0.8,0.0).replicate(F2.rows(),1);
-        
-        if (mark_out && i+1==iteration){
-            
-            // Find non-overlapping area
-            // Vx to V1
-            std::pair<Eigen::MatrixXi, Eigen::MatrixXi> FF2 = ICP::FindNonOverlappingFaces(V1, Vx, F2);
-            // V1 to Vx
-            std::pair<Eigen::MatrixXi, Eigen::MatrixXi> FF1 = ICP::FindNonOverlappingFaces(Vx, V1, F1);
 
-            Eigen::MatrixXd V(V1.rows() + V1.rows() + Vx.rows()+ Vx.rows(), V1.cols());
-            V << V1,V1,Vx,Vx;
-            
-            Eigen::MatrixXi F(FF1.first.rows()+FF1.second.rows()+FF2.first.rows()+FF2.second.rows(),F1.cols());
-            F << FF1.first, (FF1.second.array()+V1.rows()), (FF2.first.array()+V1.rows()+V1.rows()),(FF2.second.array()+Vx.rows() + V1.rows()+V1.rows());
-            
-            Eigen::MatrixXd C(F.rows(),3);
-            C <<
-            Eigen::RowVector3d(1.0,0.8,0.0).replicate(FF1.first.rows(),1),
-            Eigen::RowVector3d(1.0,0.0,0.0).replicate(FF1.second.rows(),1),
-            Eigen::RowVector3d(1.0,0.5,0.25).replicate(FF2.first.rows(),1),
-            Eigen::RowVector3d(1.0,0.0,0.0).replicate(FF2.second.rows(),1);
-            
-            rendering_data.push_back(RenderingData{V,F,C});
+        // If the V not longer changes or reaches the iteration limit
+        if (i+1 == iteration){
+
+            std::cout << "Iteration times: " + std::to_string(i+1) << std::endl;
+
+            if (mark_out){
+                // Find non-overlapping area
+                // Vx to V1
+                std::pair<Eigen::MatrixXi, Eigen::MatrixXi> FF2 = ICP::FindNonOverlappingFaces(V1, Vx, F2);
+                // V1 to Vx
+                std::pair<Eigen::MatrixXi, Eigen::MatrixXi> FF1 = ICP::FindNonOverlappingFaces(Vx, V1, F1);
+
+                Eigen::MatrixXd V(V1.rows() + V1.rows() + Vx.rows()+ Vx.rows(), V1.cols());
+                V << V1,V1,Vx,Vx;
+
+                Eigen::MatrixXi F(FF1.first.rows()+FF1.second.rows()+FF2.first.rows()+FF2.second.rows(),F1.cols());
+                F << FF1.first, (FF1.second.array()+V1.rows()), (FF2.first.array()+V1.rows()+V1.rows()),(FF2.second.array()+Vx.rows() + V1.rows()+V1.rows());
+
+                Eigen::MatrixXd C(F.rows(),3);
+                C <<
+                  Eigen::RowVector3d(1.0,0.8,0.0).replicate(FF1.first.rows(),1),
+                        Eigen::RowVector3d(1.0,0.0,0.0).replicate(FF1.second.rows(),1),
+                        Eigen::RowVector3d(1.0,0.5,0.25).replicate(FF2.first.rows(),1),
+                        Eigen::RowVector3d(1.0,0.0,0.0).replicate(FF2.second.rows(),1);
+
+                rendering_data.push_back(RenderingData{V,F,C});
+
+            }else{
+                rendering_data.push_back(RenderingData{V,F,C});
+            }
+
+            break;
+
         }else{
+
             rendering_data.push_back(RenderingData{V,F,C});
         }
-        
+
     }
 
     Visualise(rendering_data.size());
@@ -196,7 +212,7 @@ void Scene::LoadMultiple(){
     igl::readOFF(FILE_PATH "bun045.off", V2, F2);
     igl::readOFF(FILE_PATH "bun315.off", V3, F3);
     igl::readOFF(FILE_PATH "bun090.off", V4, F4);
-    igl::readOFF(FILE_PATH "bun270.off", V5, F5);
+    igl::readOFF(FILE_PATH "bun180.off", V5, F5);
     
     // Display meshes
     Eigen::MatrixXd V(V1.rows()+V2.rows()+V3.rows()+V4.rows()+V5.rows(), V1.cols());
@@ -219,164 +235,180 @@ void Scene::LoadMultiple(){
 }
 
 void Scene::MultiMeshAlign(){
-    
+
+    rendering_data.clear();
+
     Eigen::MatrixXd V1r = V1;
     Eigen::MatrixXi F1r = F1;
-    
+
     Eigen::MatrixXd V2r = V2;
     Eigen::MatrixXi F2r = F2;
-    
+
     Eigen::MatrixXd V3r = V3;
     Eigen::MatrixXi F3r = F3;
-    
+
     Eigen::MatrixXd V4r = V4;
     Eigen::MatrixXi F4r = F4;
-    
+
     Eigen::MatrixXd V5r = V5;
     Eigen::MatrixXi F5r = F5;
-    
-    for (size_t i=0; i<iteration;i++){
-        
-        V2r = ICP::ICPBasic(V1, V2r);
 
-        Eigen::MatrixXd Vx(V1r.rows()+V2r.rows(), V1r.cols());
-        Vx << V1r,V2r;
-
-        Eigen::MatrixXi Fx(F1r.rows()+F2r.rows(),F1r.cols());
-        Fx << F1r, (F2r.array()+V1r.rows());
-
-        Eigen::MatrixXd Cx(Fx.rows(),3);
-        Cx <<
-        Eigen::RowVector3d(1.0,0.5,0.25).replicate(F1r.rows(),1),
-        Eigen::RowVector3d(1.0,0.8,0.0).replicate(F2r.rows(),1);
-
-
-        V3r = ICP::ICPBasic(Vx, V3r);
-
-        Eigen::MatrixXd Vy(Vx.rows()+V3r.rows(), Vx.cols());
-        Vy << Vx,V3r;
-
-        Eigen::MatrixXi Fy(Fx.rows()+F3r.rows(),Fx.cols());
-        Fy << Fx, (F3r.array()+Vx.rows());
-
-        Eigen::MatrixXd Cy(Fy.rows(),3);
-        Cy <<
-        Eigen::RowVector3d(1.0,0.5,0.25).replicate(Fx.rows(),1),
-        Eigen::RowVector3d(1.0,0.8,0.0).replicate(F3r.rows(),1);
-
-        
-        V4r = ICP::ICPBasic(Vy, V4r);
-//
-        Eigen::MatrixXd Vz(Vy.rows()+V4r.rows(), Vy.cols());
-        Vz << Vy,V4r;
-//
-        Eigen::MatrixXi Fz(Fy.rows()+F4r.rows(),Fy.cols());
-        Fz << Fy, (F4r.array()+Vy.rows());
-//
-        Eigen::MatrixXd Cz(Fz.rows(),3);
-        Cz <<
-        Eigen::RowVector3d(1.0,0.5,0.25).replicate(Fy.rows(),1),
-        Eigen::RowVector3d(1.0,0.8,0.0).replicate(F4r.rows(),1);
-
-        
-        
-        //rendering_data.push_back(RenderingData{Vy,Fy,Cy});
-        rendering_data.push_back(RenderingData{Vz,Fz,Cz});
-        
-    }
-    
-//
-//
-//        V_to_process = ICP::ICPBasic(V_target, V_to_process);
-//
-////        Eigen::MatrixXd V(V_target.rows()+V_to_process.rows(), V_target.cols());
-////        V <<
-////        V_target,
-////        V_to_process;
-////
-////        Eigen::MatrixXi F(F_target.rows()+F_to_process.rows(),F_target.cols());
-////        F <<
-////        F_target,
-////        (F_to_process.array()+V_target.rows());
-////
-////        Eigen::MatrixXd C(F.rows(),3);
-////        C <<
-////        Eigen::RowVector3d(1.0,0.5,0.25).replicate(F_target.rows(),1),
-////        Eigen::RowVector3d(1.0,0.8,0.0).replicate(F_to_process.rows(),1);
-//
-//        if (i + 1 == iteration){
-//
-//            Eigen::MatrixXd V(V_target.rows()+V_to_process.rows(), V_target.cols());
-//            V <<
-//            V_target,
-//            V_to_process;
-//
-//            Eigen::MatrixXi F(F_target.rows()+F_to_process.rows(),F_target.cols());
-//            F <<
-//            F_target,
-//            (F_to_process.array()+V_target.rows());
-//
-//            Eigen::MatrixXd C(F.rows(),3);
-//            C <<
-//            Eigen::RowVector3d(1.0,0.5,0.25).replicate(F_target.rows(),1),
-//            Eigen::RowVector3d(1.0,0.8,0.0).replicate(F_to_process.rows(),1);
-//
-//            rendering_data.push_back(RenderingData{V,F,C});
-//
-//
-//        }
-//
-//
-//    }
-//
-//    V_target = rendering_data.back().V;
-//    F_target = rendering_data.back().F;
-//    V_to_process = V3;
-//    F_to_process = F3;
-//
 //    for (size_t i=0; i<iteration;i++){
 //
-//        V_to_process = ICP::ICPBasic(V_target, V_to_process);
-////
-////        Eigen::MatrixXd V(V_target.rows()+V_to_process.rows(), V_target.cols());
-////        V <<
-////        V_target,
-////        V_to_process;
-////
-////        Eigen::MatrixXi F(F_target.rows()+F_to_process.rows(),F_target.cols());
-////        F <<
-////        F_target,
-////        (F_to_process.array()+V_target.rows());
-////
-////        Eigen::MatrixXd C(F.rows(),3);
-////        C <<
-////        Eigen::RowVector3d(1.0,0.5,0.25).replicate(F_target.rows(),1),
-////        Eigen::RowVector3d(1.0,0.8,0.0).replicate(F_to_process.rows(),1);
+//        V2r = ICP::FindBestStartRotation(V1, V2r);
+//
+//        V2r = ICP::ICPBasic(V1, V2r);
+//
+//        Eigen::MatrixXd Vx(V1r.rows()+V2r.rows(), V1r.cols());
+//        Vx << V1r,V2r;
+//
+//        Eigen::MatrixXi Fx(F1r.rows()+F2r.rows(),F1r.cols());
+//        Fx << F1r, (F2r.array()+V1r.rows());
+//
+//        Eigen::MatrixXd Cx(Fx.rows(),3);
+//        Cx <<
+//        Eigen::RowVector3d(1.0,0.5,0.25).replicate(F1r.rows(),1),
+//        Eigen::RowVector3d(1.0,0.8,0.0).replicate(F2r.rows(),1);
+//
+//        V3r = ICP::FindBestStartRotation(Vx, V3r);
+//        V3r = ICP::ICPBasic(Vx, V3r);
+//
+//        Eigen::MatrixXd Vy(Vx.rows()+V3r.rows(), Vx.cols());
+//        Vy << Vx,V3r;
+//
+//        Eigen::MatrixXi Fy(Fx.rows()+F3r.rows(),Fx.cols());
+//        Fy << Fx, (F3r.array()+Vx.rows());
+//
+//        Eigen::MatrixXd Cy(Fy.rows(),3);
+//        Cy <<
+//        Eigen::RowVector3d(1.0,0.5,0.25).replicate(Fx.rows(),1),
+//        Eigen::RowVector3d(1.0,0.8,0.0).replicate(F3r.rows(),1);
+//
+//        V4r = ICP::FindBestStartRotation(Vy, V4r);
+//        V4r = ICP::ICPBasic(Vy, V4r);
+//
+//        Eigen::MatrixXd Vz(Vy.rows()+V4r.rows(), Vy.cols());
+//        Vz << Vy,V4r;
+//
+//        Eigen::MatrixXi Fz(Fy.rows()+F4r.rows(),Fy.cols());
+//        Fz << Fy, (F4r.array()+Vy.rows());
+//
+//        Eigen::MatrixXd Cz(Fz.rows(),3);
+//        Cz <<
+//        Eigen::RowVector3d(1.0,0.5,0.25).replicate(Fy.rows(),1),
+//        Eigen::RowVector3d(1.0,0.8,0.0).replicate(F4r.rows(),1);
+//
+//        V5r = ICP::FindBestStartRotation(Vz, V5r);
+//        V5r = ICP::ICPBasic(Vz, V5r);
+//
+//        Eigen::MatrixXd Vo(Vz.rows()+V5r.rows(), Vz.cols());
+//        Vo << Vz,V5r;
+//
+//        Eigen::MatrixXi Fo(Fz.rows()+F5r.rows(),Fz.cols());
+//        Fo << Fz, (F5r.array()+Vz.rows());
+//
+//        Eigen::MatrixXd Co(Fo.rows(),3);
+//        Co <<
+//        Eigen::RowVector3d(1.0,0.5,0.25).replicate(Fz.rows(),1),
+//        Eigen::RowVector3d(1.0,0.8,0.0).replicate(F5r.rows(),1);
 //
 //
 //        if (i+1==iteration){
-//
-//            Eigen::MatrixXd V(V_target.rows()+V_to_process.rows(), V_target.cols());
-//            V <<
-//            V_target,
-//            V_to_process;
-//
-//            Eigen::MatrixXi F(F_target.rows()+F_to_process.rows(),F_target.cols());
-//            F <<
-//            F_target,
-//            (F_to_process.array()+V_target.rows());
-//
-//            Eigen::MatrixXd C(F.rows(),3);
-//            C <<
-//            Eigen::RowVector3d(1.0,0.5,0.25).replicate(F_target.rows(),1),
-//            Eigen::RowVector3d(1.0,0.8,0.0).replicate(F_to_process.rows(),1);
-//
-//            rendering_data.push_back(RenderingData{V,F,C});
+//            Eigen::MatrixXd C(Fo.rows(),3);
+//            C<<
+//            Eigen::RowVector3d(1.0,0.5,0.25).replicate(F1r.rows(),1),
+//            Eigen::RowVector3d(1.0,0.8,0.0).replicate(F2r.rows(),1),
+//            Eigen::RowVector3d(0.25,0.6,1.0).replicate(F3r.rows(),1),
+//            Eigen::RowVector3d(0.2,0.7,0.45).replicate(F4r.rows(),1),
+//            Eigen::RowVector3d(0.8,0.0,0.8).replicate(F5r.rows(),1);
+//            rendering_data.push_back(RenderingData{Vo,Fo,C});
+//        }else{
+//            rendering_data.push_back(RenderingData{Vo,Fo,Co});
 //        }
 //
 //    }
-    
-    //cummulated_data = rendering_data.back();
+
+    V2r = ICP::FindBestStartRotation(V1, V2r);
+    for (size_t i=0; i<iteration;i++) {
+
+        Eigen::MatrixXd V_matched = ICP::FindCorrespondences(V1, V2r);
+        std::pair<Eigen::Matrix3d, Eigen::RowVector3d> transform = ICP::EstimateRigidTransform(V_matched,V2r);
+        V2r = ICP::ApplyRigidTransform(V2r, transform);
+
+        if (transform.second.norm() < loop_threshold || i + 1 == iteration){
+            std::cout << "Iteration times: " + std::to_string(i+1) << std::endl;
+            break;
+        }
+    }
+
+    Eigen::MatrixXd V12(V1.rows()+V2r.rows(), V1.cols());
+    V12<<V1, V2r;
+    Eigen::MatrixXi F12(F1.rows()+F2r.rows(), F1.cols());
+    F12<<F1, (F2r.array()+V1.rows());
+
+    V3r = ICP::FindBestStartRotation(V2r, V3r);
+    for (size_t i=0; i<iteration;i++) {
+
+        Eigen::MatrixXd V_matched = ICP::FindCorrespondences(V12, V3r);
+        std::pair<Eigen::Matrix3d, Eigen::RowVector3d> transform = ICP::EstimateRigidTransform(V_matched,V3r);
+        V3r = ICP::ApplyRigidTransform(V3r, transform);
+
+        if (transform.second.norm() < loop_threshold || i + 1 == iteration){
+            std::cout << "Iteration times: " + std::to_string(i+1) << std::endl;
+            break;
+        }
+    }
+
+    Eigen::MatrixXd V123(V12.rows()+V3r.rows(), V1.cols());
+    V123<<V12, V3r;
+    Eigen::MatrixXi F123(F12.rows()+F3r.rows(), F1.cols());
+    F123<<F12, (F3r.array()+V12.rows());
+
+    V4r = ICP::FindBestStartRotation(V3r, V4r);
+    for (size_t i=0; i<iteration;i++) {
+
+        Eigen::MatrixXd V_matched = ICP::FindCorrespondences(V123, V4r);
+        std::pair<Eigen::Matrix3d, Eigen::RowVector3d> transform = ICP::EstimateRigidTransform(V_matched,V4r);
+        V4r = ICP::ApplyRigidTransform(V4r, transform);
+
+        if (transform.second.norm() < loop_threshold || i + 1 == iteration){
+            std::cout << "Iteration times: " + std::to_string(i+1) << std::endl;
+            break;
+        }
+    }
+
+    Eigen::MatrixXd V1234(V123.rows()+V4r.rows(), V1.cols());
+    V1234<<V123, V4r;
+    Eigen::MatrixXi F1234(F123.rows()+F4r.rows(), F1.cols());
+    F1234<<F123,(F4r.array()+V123.rows());
+
+    V5r = ICP::FindBestStartRotation(V4r, V5r);
+    for (size_t i=0; i<iteration;i++) {
+
+        Eigen::MatrixXd V_matched = ICP::FindCorrespondences(V1234, V5r);
+        std::pair<Eigen::Matrix3d, Eigen::RowVector3d> transform = ICP::EstimateRigidTransform(V_matched,V5r);
+        V5r = ICP::ApplyRigidTransform(V5r, transform);
+
+        if (transform.second.norm() < loop_threshold || i + 1 == iteration){
+            std::cout << "Iteration times: " + std::to_string(i+1) << std::endl;
+            break;
+        }
+    }
+
+    Eigen::MatrixXd V12345(V1234.rows()+V5.rows(), V1.cols());
+    V12345<<V1234, V5r;
+    Eigen::MatrixXi F12345(F1234.rows()+F5r.rows(), F1.cols());
+    F12345<<F1234,(F5r.array()+V1234.rows());
+
+    Eigen::MatrixXd C(F12345.rows(),3);
+    C<<
+    Eigen::RowVector3d(1.0,0.5,0.25).replicate(F1.rows(),1),
+    Eigen::RowVector3d(1.0,0.8,0.0).replicate(F2r.rows(),1),
+    Eigen::RowVector3d(0.25,0.6,1.0).replicate(F3r.rows(),1),
+    Eigen::RowVector3d(0.2,0.7,0.45).replicate(F4r.rows(),1),
+    Eigen::RowVector3d(0.8,0.0,0.8).replicate(F5r.rows(),1);
+
+    rendering_data.push_back(RenderingData{V12345,F12345,C});
 
     Visualise(rendering_data.size());
 }

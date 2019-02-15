@@ -26,7 +26,7 @@ int main(int argc, char *argv[]){
     double rotation_y = 0.0;
     double rotation_z = 0.0;
     double gaussian_sd = 0.0;
-    int iteration = 30;
+    int iteration = 300;
     double subsample_rate = 0.0;
     int frame = 1;
     bool mark_out = false;
