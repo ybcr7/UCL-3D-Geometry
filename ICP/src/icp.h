@@ -24,11 +24,16 @@ namespace ICP{
     
     Eigen::MatrixXd ICPBasic(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process);
 
-    Eigen::MatrixXd ICPNormalBased(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process);
+    Eigen::MatrixXd ICPBasic2(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process);
+
+    Eigen::MatrixXd ICPOptimised(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process, double subsample_rate);
 
     Eigen::MatrixXd ICPAdvanced(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process, double subsample_rate, int mode);
 
     Eigen::MatrixXd FindBestStartRotation(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process);
 
+    Eigen::MatrixXd ICPAlt(Eigen::MatrixXd V1,Eigen::MatrixXi F1,Eigen::MatrixXd V2,Eigen::MatrixXi F2);
+
+    Eigen::MatrixXd apply_R_t(Eigen::MatrixXd V, Eigen::MatrixXd R_t);
 }
 

@@ -4,46 +4,40 @@
 #include <iostream>
 #include <math.h>
 #include <time.h>
+#include <igl/boundary_loop.h>
+#include <igl/bounding_box.h>
 #include <igl/vertex_triangle_adjacency.h>
 #include <igl/fit_plane.h>
 #include "nanoflann.hpp"
 #include "icp.h"
 
-
-
 Eigen::MatrixXd ICP::GetSubsample(Eigen::MatrixXd V_to_process, double subsample_rate){
 
-    std::vector<Eigen::Vector3d> V_raw;
-    std::vector<Eigen::Vector3d> V_subsampled;
-    Eigen::MatrixXd V_out(0,3);
+    // A. Random Sampling
 
-    for (size_t f=0; f<V_to_process.rows(); f++){
-        V_raw.push_back(V_to_process.row(f));
+
+    // B. Uniform Subsampling
+    std::vector<int> V_index;
+    std::random_device rand;
+    std::mt19937 generate(rand());
+    std::uniform_int_distribution<> distribution(0, V_to_process.rows()-1);
+    int vertex_to_keep = V_to_process.rows() - round(V_to_process.rows()*(subsample_rate/100));
+
+    for (int i = 0; i < vertex_to_keep; i++){
+        V_index.push_back(distribution(generate));
     }
 
-    int subsample_vertex = round(V_to_process.rows()*(subsample_rate/100));
-    //std::cout << subsample_vertex << std::endl;
-    for (int i = 0; i < subsample_vertex; i++){
-        int rand_index = rand() % V_raw.size();
-        //V_subsampled.push_back(V_raw[rand_index]);
-        V_raw.erase(V_raw.begin() + rand_index);
+    std::sort(V_index.begin(),V_index.end());
+    V_index.erase(std::unique(V_index.begin(), V_index.end()), V_index.end());
+
+    Eigen::MatrixXd V_out(V_index.size(), 3);
+    V_out.setZero();
+
+    for (int i = 0; i < V_index.size(); i ++){
+        V_out.row(i) = V_to_process.row(V_index[i]);
     }
 
-
-
-    for (size_t i=0; i <V_raw.size(); i++){
-        V_out.conservativeResize(V_out.rows()+1, 3);
-        V_out.row(V_out.rows()-1) = V_raw[i];
-    }
-
-
-    std::cout << V_to_process.rows() << std::endl;
     std::cout << V_out.rows() << std::endl;
-//
-//    for (size_t i=0; i <V_subsampled.size(); i++){
-//        V_out.conservativeResize(V_out.rows()+1, 3);
-//        V_out.row(V_out.rows()-1) = V_subsampled[i];
-//    }
 
     return V_out;
 }
@@ -203,16 +197,24 @@ Eigen::MatrixXd ICP::AddNoise(Eigen::MatrixXd V_in, double sd){
     Eigen::MatrixXd V_out;
     V_out.resize(V_in.rows(), V_in.cols());
     V_out.setZero();
-    
+
+    Eigen::MatrixXd V_bounding;
+    Eigen::MatrixXi F_bounding;
+
+    igl::bounding_box(V_in, V_bounding, F_bounding);
+    double noise_scale_x = abs(V_bounding.row(0).x()-V_bounding.row(4).x());
+    double noise_scale_y = abs(V_bounding.row(0).y()-V_bounding.row(2).y());
+    double noise_scale_z = abs(V_bounding.row(0).z()-V_bounding.row(1).z());
+
     // Random number generation
     std::default_random_engine rnd;
     std::normal_distribution<double> gaussian(0.0, sd);
     
     // Add noise to the vertex
     for (int i=0; i<V_out.rows(); i++){
-        double x =gaussian(rnd)/1000;
-        double y =gaussian(rnd)/1000;
-        double z =gaussian(rnd)/1000;
+        double x =gaussian(rnd)/(10000*noise_scale_x);
+        double y =gaussian(rnd)/(10000*noise_scale_y);
+        double z =gaussian(rnd)/(10000*noise_scale_z);
         Eigen::RowVector3d noise(x,y,z);
         V_out.row(i) = V_in.row(i) + noise;
     }
@@ -246,42 +248,42 @@ Eigen::MatrixXd ICP::FindBestStartRotation(Eigen::MatrixXd V_target, Eigen::Matr
     return V_rotate_list[min];
 }
 
-std::pair<Eigen::MatrixXd, Eigen::MatrixXd> ICP::RejectPairs(Eigen::MatrixXd V_matched, Eigen::MatrixXd V_to_process){
-
-    const double k = 2.0;
-
-    Eigen::MatrixXd V_matched_rejected(0,3);
-    Eigen::MatrixXd V_raw_reduced(0,3);
-
-    std::vector<int> error_list;
-
-    Eigen::RowVector3d mean_distance_matched = V_matched.colwise().sum()/V_matched.rows();
-    Eigen::RowVector3d mean_distance_raw = V_to_process.colwise().sum()/V_to_process.rows();
-    double distance = (mean_distance_matched-mean_distance_raw).norm();
-
-    for (size_t i = 0; i < V_matched.rows(); i ++){
-        if ((V_matched.row(i) - V_to_process.row(i)).norm() > k * distance){
-            error_list.push_back(i);
-        }
-    }
-
-    for (size_t i = 0; i < V_matched.rows(); i ++){
-        if(std::find(error_list.begin(), error_list.end(), i) != error_list.end()) {
-            // If i is in the error list
-        } else {
-            // Otherwise assign non-error vertex to outputs
-            V_matched_rejected.conservativeResize(V_matched_rejected.rows()+1, 3);
-            V_matched_rejected.row(V_matched_rejected.rows()-1) = V_matched.row(i);
-
-            V_raw_reduced.conservativeResize(V_raw_reduced.rows()+1, 3);
-            V_raw_reduced.row(V_raw_reduced.rows()-1) = V_to_process.row(i);
-        }
-    }
-
-    std::cout << V_matched_rejected.rows() << std::endl;
-
-    return std::pair<Eigen::MatrixXd, Eigen::MatrixXd>(V_matched_rejected, V_raw_reduced);
-}
+//std::pair<Eigen::MatrixXd, Eigen::MatrixXd> ICP::RejectPairs(Eigen::MatrixXd V_matched, Eigen::MatrixXd V_to_process){
+//
+//    const double k = 2.0;
+//
+//    Eigen::MatrixXd V_matched_rejected(0,3);
+//    Eigen::MatrixXd V_raw_reduced(0,3);
+//
+//    std::vector<int> error_list;
+//
+//    Eigen::RowVector3d mean_distance_matched = V_matched.colwise().sum()/V_matched.rows();
+//    Eigen::RowVector3d mean_distance_raw = V_to_process.colwise().sum()/V_to_process.rows();
+//    double distance = (mean_distance_matched-mean_distance_raw).norm();
+//
+//    for (size_t i = 0; i < V_matched.rows(); i ++){
+//        if ((V_matched.row(i) - V_to_process.row(i)).norm() > k * distance){
+//            error_list.push_back(i);
+//        }
+//    }
+//
+//    for (size_t i = 0; i < V_matched.rows(); i ++){
+//        if(std::find(error_list.begin(), error_list.end(), i) != error_list.end()) {
+//            // If i is in the error list
+//        } else {
+//            // Otherwise assign non-error vertex to outputs
+//            V_matched_rejected.conservativeResize(V_matched_rejected.rows()+1, 3);
+//            V_matched_rejected.row(V_matched_rejected.rows()-1) = V_matched.row(i);
+//
+//            V_raw_reduced.conservativeResize(V_raw_reduced.rows()+1, 3);
+//            V_raw_reduced.row(V_raw_reduced.rows()-1) = V_to_process.row(i);
+//        }
+//    }
+//
+//    std::cout << V_matched_rejected.rows() << std::endl;
+//
+//    return std::pair<Eigen::MatrixXd, Eigen::MatrixXd>(V_matched_rejected, V_raw_reduced);
+//}
 
 std::pair<Eigen::MatrixXd, Eigen::MatrixXd> ICP::FindCorrespondences(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process){
 
@@ -295,7 +297,7 @@ std::pair<Eigen::MatrixXd, Eigen::MatrixXd> ICP::FindCorrespondences(Eigen::Matr
 
     const double k = 2.0;
     const size_t num_result = 1;
-    const size_t max_leaf = 10;
+    const size_t max_leaf = 20;
 
     double distance_median;
 
@@ -354,8 +356,11 @@ std::pair<Eigen::MatrixXd, Eigen::MatrixXd> ICP::FindCorrespondences(Eigen::Matr
         V_refined_raw.row(i) = V_to_process.row(refined_index[i]);
     }
 
+    std::cout << V_refined_out.rows() << std::endl;
+
     return std::pair<Eigen::MatrixXd, Eigen::MatrixXd>(V_refined_out, V_refined_raw);
 }
+
 
 std::pair<Eigen::Matrix3d, Eigen::RowVector3d> ICP::EstimateRigidTransform(Eigen::MatrixXd V_matched, Eigen::MatrixXd V_to_process){
 
@@ -387,7 +392,7 @@ std::pair<Eigen::Matrix3d, Eigen::RowVector3d> ICP::EstimateRigidTransform(Eigen
 
     Eigen::JacobiSVD<Eigen::MatrixXd> svd(A, Eigen::ComputeThinU | Eigen::ComputeThinV);
     Eigen::MatrixXd R = svd.matrixU() * svd.matrixV().transpose();
-    Eigen::RowVector3d T = p_bar - R * q_bar;
+    Eigen::RowVector3d T = p_bar - q_bar * R;
 
     transform.first = R;
     transform.second = T;
@@ -416,3 +421,13 @@ Eigen::MatrixXd ICP::ICPBasic(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_pro
     std::pair<Eigen::Matrix3d, Eigen::RowVector3d> transform = ICP::EstimateRigidTransform(correspondences.first, correspondences.second);
     return ICP::ApplyRigidTransform(V_to_process, transform);
 }
+
+
+Eigen::MatrixXd ICP::ICPOptimised(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process, double subsample_rate){
+    Eigen::MatrixXd V_subsampled = GetSubsample(V_to_process, subsample_rate);
+    std::pair<Eigen::MatrixXd, Eigen::MatrixXd> correspondences = FindCorrespondences(V_target, V_subsampled);
+    std::pair<Eigen::Matrix3d, Eigen::RowVector3d> transform = ICP::EstimateRigidTransform(correspondences.first, correspondences.second);
+    return ICP::ApplyRigidTransform(V_to_process, transform);
+}
+
+//Eigen::MatrixXd ICP::ICPAdvanced()
