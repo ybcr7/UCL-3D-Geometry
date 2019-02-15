@@ -5,8 +5,8 @@ namespace ICP{
     Eigen::MatrixXd GetSubsample(Eigen::MatrixXd V_to_process, double subsample_rate);
 
     Eigen::MatrixXd GetVertexNormal(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process);
-    
-    Eigen::MatrixXd FindCorrespondences(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process);
+
+    std::pair<Eigen::MatrixXd, Eigen::MatrixXd> FindCorrespondences(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process);
 
     std::pair<Eigen::MatrixXd, Eigen::MatrixXd> RejectPairs(Eigen::MatrixXd V_matched, Eigen::MatrixXd V_to_process);
 
