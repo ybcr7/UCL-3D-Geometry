@@ -8,32 +8,32 @@ namespace ICP{
 
     std::pair<Eigen::MatrixXd, Eigen::MatrixXd> FindCorrespondences(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process);
 
-    std::pair<Eigen::MatrixXd, Eigen::MatrixXd> RejectPairs(Eigen::MatrixXd V_matched, Eigen::MatrixXd V_to_process);
+    Eigen::MatrixXd FindCorrespondences2(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process);
 
-    bool DetectErrors();
+    //std::pair<Eigen::MatrixXd, Eigen::MatrixXd> RejectPairs(Eigen::MatrixXd V_matched, Eigen::MatrixXd V_to_process);
 
     std::pair<Eigen::Matrix3d, Eigen::RowVector3d> EstimateRigidTransform(Eigen::MatrixXd V_matched, Eigen::MatrixXd V_to_process);
+
+    std::pair<Eigen::Matrix3d, Eigen::RowVector3d> EstimateRigidTransformNormalBased(Eigen::MatrixXd V_matched, Eigen::MatrixXd V_to_process, Eigen::MatrixXd N_to_process);
 
     Eigen::MatrixXd ApplyRigidTransform(Eigen::MatrixXd V_to_process, std::pair<Eigen::Matrix3d, Eigen::RowVector3d> transform);
     
     std::pair<Eigen::MatrixXi, Eigen::MatrixXi> FindNonOverlappingFaces(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process, Eigen::MatrixXi F_to_process);
-    
+
+
     Eigen::MatrixXd Rotate(Eigen::MatrixXd V_in, double x, double y, double z);
     
     Eigen::MatrixXd AddNoise(Eigen::MatrixXd V_in, double sd);
-    
-    Eigen::MatrixXd ICPBasic(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process);
 
-    Eigen::MatrixXd ICPBasic2(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process);
+
+    Eigen::MatrixXd ICPBasic(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process);
 
     Eigen::MatrixXd ICPOptimised(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process, double subsample_rate);
 
-    Eigen::MatrixXd ICPAdvanced(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process, double subsample_rate, int mode);
+    Eigen::MatrixXd ICPNormalBased(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process);
 
     Eigen::MatrixXd FindBestStartRotation(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process);
 
-    Eigen::MatrixXd ICPAlt(Eigen::MatrixXd V1,Eigen::MatrixXi F1,Eigen::MatrixXd V2,Eigen::MatrixXi F2);
-
-    Eigen::MatrixXd apply_R_t(Eigen::MatrixXd V, Eigen::MatrixXd R_t);
+    Eigen::MatrixXd GetNormal(Eigen::MatrixXd source, Eigen::MatrixXd target);
 }
 

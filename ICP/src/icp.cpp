@@ -13,37 +13,49 @@
 
 Eigen::MatrixXd ICP::GetSubsample(Eigen::MatrixXd V_to_process, double subsample_rate){
 
-    // A. Random Sampling
-
-
-    // B. Uniform Subsampling
+    // Random Sampling
     std::vector<int> V_index;
-    std::random_device rand;
-    std::mt19937 generate(rand());
-    std::uniform_int_distribution<> distribution(0, V_to_process.rows()-1);
-    int vertex_to_keep = V_to_process.rows() - round(V_to_process.rows()*(subsample_rate/100));
-
-    for (int i = 0; i < vertex_to_keep; i++){
-        V_index.push_back(distribution(generate));
+    for (size_t i = 0; i < V_to_process.rows(); i++) {
+        if (rand() / double(RAND_MAX) >= subsample_rate/100) {
+            V_index.push_back(i);
+        }
     }
-
-    std::sort(V_index.begin(),V_index.end());
-    V_index.erase(std::unique(V_index.begin(), V_index.end()), V_index.end());
 
     Eigen::MatrixXd V_out(V_index.size(), 3);
     V_out.setZero();
 
-    for (int i = 0; i < V_index.size(); i ++){
+    for (size_t i = 0; i < V_index.size(); i++) {
         V_out.row(i) = V_to_process.row(V_index[i]);
     }
 
-    std::cout << V_out.rows() << std::endl;
-
     return V_out;
+
+    // Uniform subsampling
+//    std::vector<int> V_index;
+//    std::random_device rand;
+//    std::mt19937 generate(rand());
+//    std::uniform_int_distribution<> distribution(0, V_to_process.rows() - 1);
+//    int vertex_to_keep = round(V_to_process.rows() * (1 - (subsample_rate / 100)));
+//
+//    for (int i = 0; i < vertex_to_keep; i++) {
+//        V_index.push_back(distribution(generate));
+//    }
+//
+//    std::sort(V_index.begin(), V_index.end());
+//    V_index.erase(std::unique(V_index.begin(), V_index.end()), V_index.end());
+//
+//    Eigen::MatrixXd V_out(V_index.size(), 3);
+//    V_out.setZero();
+//
+//    for (int i = 0; i < V_index.size(); i++) {
+//        V_out.row(i) = V_to_process.row(V_index[i]);
+//    }
+//
+//    return V_out;
+
 }
 
 Eigen::MatrixXd ICP::GetVertexNormal(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process){
-
 
     // p <-matched q<-to process
     Eigen::MatrixXd VN_out;
@@ -51,14 +63,15 @@ Eigen::MatrixXd ICP::GetVertexNormal(Eigen::MatrixXd V_target, Eigen::MatrixXd V
     VN_out.setZero();
 
     const size_t num_result = 8; // 4 or 8
-    const size_t max_leaf = 10;
+    const size_t max_leaf = 20;
 
-    Eigen::RowVector3d center;
-    center = V_to_process.colwise().sum()/ double(V_to_process.rows());
+    //Eigen::RowVector3d center;
+    Eigen::MatrixXd center(1,3);
+    center = V_target.colwise().sum()/ double(V_target.rows());
 
 
     // Generate the KD tree with nanoflann
-    nanoflann::KDTreeEigenMatrixAdaptor<Eigen::MatrixXd> kd_tree_index(V_to_process, max_leaf);
+    nanoflann::KDTreeEigenMatrixAdaptor<Eigen::MatrixXd> kd_tree_index(V_target, max_leaf);
     kd_tree_index.index->buildIndex();
 
     // For each vertex
@@ -79,13 +92,13 @@ Eigen::MatrixXd ICP::GetVertexNormal(Eigen::MatrixXd V_target, Eigen::MatrixXd V
         // Assign founded vertex to output matrix
         Eigen::MatrixXd V_founded(num_result, 3);
         for (size_t i = 0; i < num_result; i++){
-            V_founded.row(i) = V_to_process.row(indexes[i]);
+            V_founded.row(i) = V_target.row(indexes[i]);
         }
 
         Eigen::RowVector3d N, C;
         igl::fit_plane(V_founded, N, C);
 
-        VN_out.row(v) = N.row(v);
+        VN_out.row(v) = N;
 
         // Flip normal if pointing to the wrong direction
         if((center(0,0)-V_to_process(v,0)) * VN_out(v,0) + (center(0,1)-V_to_process(v,1)) * VN_out(v,1) + (center(0,2)-V_to_process(v,2)) * VN_out(v,2) > 0) {
@@ -94,6 +107,71 @@ Eigen::MatrixXd ICP::GetVertexNormal(Eigen::MatrixXd V_target, Eigen::MatrixXd V
     }
 
     return VN_out;
+
+}
+
+std::pair<Eigen::Matrix3d, Eigen::RowVector3d> ICP::EstimateRigidTransformNormalBased(Eigen::MatrixXd V_matched, Eigen::MatrixXd V_to_process, Eigen::MatrixXd N_to_process){
+
+
+    //
+
+    std::cout << "Rigid N V_matched:" + std::to_string(N_to_process.rows()) << std::endl;
+
+    // Reference slide: http://resources.mpi-inf.mpg.de/deformableShapeMatching/EG2011_Tutorial/slides/2.1%20Rigid%20ICP.pdf Page 12
+
+    // Construct A and b to solve the point-to-plane error metric
+    // A = p_i x n_i, n_i
+    // b = -(p_i - q_i) . n_i
+
+    Eigen::MatrixXd A (V_matched.rows(), 6);
+    Eigen::MatrixXd b (V_matched.rows(), 1);
+
+    for (size_t i = 0; i < V_matched.rows(); i++){
+        A(i,0) = N_to_process.row(i).z()*V_to_process.row(i).y()-N_to_process.row(i).y()*V_to_process.row(i).z();
+        A(i,1) = N_to_process.row(i).x()*V_to_process.row(i).z()-N_to_process.row(i).z()*V_to_process.row(i).x();
+        A(i,2) = N_to_process.row(i).y()*V_to_process.row(i).x()-N_to_process.row(i).x()*V_to_process.row(i).y();
+        A(i,3) = N_to_process.row(i).x();
+        A(i,4) = N_to_process.row(i).y();
+        A(i,5) = N_to_process.row(i).z();
+
+        Eigen::MatrixXd V_difference(V_matched.rows(),3);
+        V_difference = V_matched - V_to_process;
+        b(i) = -V_difference.row(i).dot(N_to_process.row(i));
+    }
+
+    // Solve x
+    // x = (alpha beta gamma t_x t_y t_z)'T
+    Eigen::MatrixXd x = ((A.transpose() * A).inverse()) * (A.transpose()) * b;
+
+    // Compute rigid transform R and T
+    Eigen::Matrix3d R;
+    double sin_alpha = sin(x(0));
+    double cos_alpha = cos(x(0));
+    double sin_beta = sin(x(1));
+    double cos_beta = cos(x(1));
+    double sin_gamma = sin(x(2));
+    double cos_gamma = cos(x(2));
+    R(0,0) = cos_gamma * cos_beta;
+    R(0,1) = -sin_gamma * cos_alpha + cos_gamma * sin_beta * sin_alpha;
+    R(0,2) = sin_gamma * sin_alpha + cos_gamma * sin_beta * cos_alpha;
+    R(1,0) = sin_gamma * cos_beta;
+    R(1,1) = cos_gamma * cos_alpha + sin_gamma * sin_beta * sin_alpha;
+    R(1,2) = -cos_gamma * sin_alpha + sin_gamma * sin_beta * cos_alpha;
+    R(2,0) = -sin_beta;
+    R(2,1) = cos_beta * sin_alpha;
+    R(2,2) = cos_beta * cos_alpha;
+
+    Eigen::RowVector3d T(x(3),x(4),x(5));
+
+    Eigen::Matrix3d Rx;
+    Rx.setZero();
+
+    Eigen::RowVector3d Tx(0,0,0);
+
+    return std::pair<Eigen::Matrix3d, Eigen::RowVector3d>(Rx,Tx);
+
+    //return std::pair<Eigen::Matrix3d, Eigen::RowVector3d>(R,T);
+
 
 }
 
@@ -301,6 +379,9 @@ std::pair<Eigen::MatrixXd, Eigen::MatrixXd> ICP::FindCorrespondences(Eigen::Matr
 
     double distance_median;
 
+    //std::cout << "Unprocessed size:" + std::to_string(V_to_process.rows()) << std::endl;
+
+
     // Generate the KD tree with nanoflann
     nanoflann::KDTreeEigenMatrixAdaptor<Eigen::MatrixXd> kd_tree_index(V_target, max_leaf);
     kd_tree_index.index->buildIndex();
@@ -329,7 +410,7 @@ std::pair<Eigen::MatrixXd, Eigen::MatrixXd> ICP::FindCorrespondences(Eigen::Matr
     distances_raw = distances;
 
     // The pairs rejection can be done using k * median distance
-    // Reference slide: http://resources.mpi-inf.mpg.de/deformableShapeMatching/EG2011_Tutorial/slides/2.1%20Rigid%20ICP.pdf
+    // Reference slide: http://resources.mpi-inf.mpg.de/deformableShapeMatching/EG2011_Tutorial/slides/2.1%20Rigid%20ICP.pdf Page 8
 
     // Find median distance value
     std::sort(distances.begin(),distances.end());
@@ -356,11 +437,47 @@ std::pair<Eigen::MatrixXd, Eigen::MatrixXd> ICP::FindCorrespondences(Eigen::Matr
         V_refined_raw.row(i) = V_to_process.row(refined_index[i]);
     }
 
-    std::cout << V_refined_out.rows() << std::endl;
+    //std::cout << "V_refined" + std::to_string(V_refined_out.rows()) << std::endl;
 
     return std::pair<Eigen::MatrixXd, Eigen::MatrixXd>(V_refined_out, V_refined_raw);
 }
 
+Eigen::MatrixXd ICP::FindCorrespondences2(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process){
+
+    // Initialise output matrix
+    Eigen::MatrixXd V_out;
+    V_out.resize(V_to_process.rows(), V_to_process.cols());
+    V_out.setZero();
+
+    const size_t num_result = 1;
+    const size_t max_leaf = 10;
+
+    // Generate the KD tree with nanoflann
+    nanoflann::KDTreeEigenMatrixAdaptor<Eigen::MatrixXd> kd_tree_index(V_target, max_leaf);
+    kd_tree_index.index->buildIndex();
+
+    // For each vertex
+    for (size_t v=0; v<V_out.rows(); v++){
+
+        // Pick the current vertex for query
+        Eigen::RowVector3d query_vertex = V_to_process.row(v);
+
+        // Create a query object
+        std::vector<size_t> indexes(num_result);
+        std::vector<double> dists_sqr(num_result);
+
+        // Find the closest 1 vertex
+        nanoflann::KNNResultSet<double> result(num_result);
+        result.init(indexes.data(), dists_sqr.data());
+        kd_tree_index.index->findNeighbors(result, query_vertex.data(), nanoflann::SearchParams(max_leaf));
+
+        // Assign founded vertex to output matrix
+        V_out.row(v) = V_target.row(indexes[0]);
+
+    }
+
+    return V_out;
+}
 
 std::pair<Eigen::Matrix3d, Eigen::RowVector3d> ICP::EstimateRigidTransform(Eigen::MatrixXd V_matched, Eigen::MatrixXd V_to_process){
 
@@ -422,7 +539,6 @@ Eigen::MatrixXd ICP::ICPBasic(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_pro
     return ICP::ApplyRigidTransform(V_to_process, transform);
 }
 
-
 Eigen::MatrixXd ICP::ICPOptimised(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process, double subsample_rate){
     Eigen::MatrixXd V_subsampled = GetSubsample(V_to_process, subsample_rate);
     std::pair<Eigen::MatrixXd, Eigen::MatrixXd> correspondences = FindCorrespondences(V_target, V_subsampled);
@@ -430,4 +546,13 @@ Eigen::MatrixXd ICP::ICPOptimised(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to
     return ICP::ApplyRigidTransform(V_to_process, transform);
 }
 
-//Eigen::MatrixXd ICP::ICPAdvanced()
+Eigen::MatrixXd ICP::ICPNormalBased(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process){
+
+    Eigen::MatrixXd N = GetVertexNormal(V_target, V_to_process);
+    Eigen::MatrixXd V_matched = FindCorrespondences2(V_target, V_to_process);
+
+    //std::pair<Eigen::MatrixXd, Eigen::MatrixXd> correspondences = FindCorrespondences(V_target, V_to_process);
+
+    std::pair<Eigen::Matrix3d, Eigen::RowVector3d> transform = ICP::EstimateRigidTransformNormalBased(V_matched, V_to_process, N);
+    return ICP::ApplyRigidTransform(V_to_process, transform);
+}

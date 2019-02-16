@@ -46,11 +46,18 @@ void Scene::Point2PointAlign(){
     rendering_data.clear();
 
     Eigen::MatrixXd Vx = V2;
-    
+
+    clock_t start_time = std::clock();
+
     for (size_t i=0; i<iteration;i++){
         // Basic ICP algorithm
-        Vx = ICP::ICPBasic(V1, Vx);
+        std::pair<Eigen::MatrixXd, Eigen::MatrixXd> correspondences = ICP::FindCorrespondences(V1, Vx);
+        std::pair<Eigen::Matrix3d, Eigen::RowVector3d> transform = ICP::EstimateRigidTransform(correspondences.first, correspondences.second);
+        Vx = ICP::ApplyRigidTransform(Vx, transform);
     }
+
+    double time_taken = (clock() - start_time) / (double) CLOCKS_PER_SEC;
+    std::cout << "ICP Basic takes " + std::to_string(time_taken) + "s to complete " + std::to_string(iteration) + " iteration(s)" << std::endl;
 
     // Generate data and store them for display
     Eigen::MatrixXd V(V1.rows()+Vx.rows(), V1.cols());
@@ -64,11 +71,40 @@ void Scene::Point2PointAlign(){
 
     rendering_data.push_back(RenderingData{V,F,C});
 
-    Visualise(rendering_data.size());
+    // Find non-overlapping area
+    // Vx to V1
+    std::pair<Eigen::MatrixXi, Eigen::MatrixXi> FF2 = ICP::FindNonOverlappingFaces(V1, Vx, F2);
+    // V1 to Vx
+    std::pair<Eigen::MatrixXi, Eigen::MatrixXi> FF1 = ICP::FindNonOverlappingFaces(Vx, V1, F1);
+
+    Eigen::MatrixXd VM(V1.rows() + V1.rows() + Vx.rows() + Vx.rows(), V1.cols());
+    VM << V1, V1, Vx, Vx;
+
+    Eigen::MatrixXi FM(FF1.first.rows() + FF1.second.rows() + FF2.first.rows() + FF2.second.rows(),
+                      F1.cols());
+    FM << FF1.first, (FF1.second.array() + V1.rows()), (FF2.first.array() + V1.rows() + V1.rows()), (
+            FF2.second.array() + Vx.rows() + V1.rows() + V1.rows());
+
+    Eigen::MatrixXd CM(FM.rows(), 3);
+    CM <<
+      Eigen::RowVector3d(1.0, 0.5, 0.25).replicate(FF1.first.rows(), 1),
+            Eigen::RowVector3d(1.0, 0.0, 0.0).replicate(FF1.second.rows(), 1),
+            Eigen::RowVector3d(1.0, 0.8, 0.0).replicate(FF2.first.rows(), 1),
+            Eigen::RowVector3d(1.0, 0.0, 0.0).replicate(FF2.second.rows(), 1);
+
+    rendering_data.push_back(RenderingData{VM, FM, CM});
+
+    if (mark_out){
+        Visualise(rendering_data.size());
+
+    }else{
+        Visualise(rendering_data.size()-1);
+    }
+
 
 }
 
-void Scene::RotateMeshWithNoise(double x, double y, double z, double sd){
+void Scene::RotateMesh(double x, double y, double z){
     
     rendering_data.clear();
     
@@ -78,9 +114,6 @@ void Scene::RotateMeshWithNoise(double x, double y, double z, double sd){
     // M2 = R(M1), vertex positions are changed while the face relation remains
     V2 = ICP::Rotate(V1, x, y, z);
     F2 = F1;
-
-    // M2' = M2
-    V2 = ICP::AddNoise(V2, sd);
     
     // Display meshes
     Eigen::MatrixXd V(V1.rows()+V2.rows(), V1.cols());
@@ -99,56 +132,63 @@ void Scene::RotateMeshWithNoise(double x, double y, double z, double sd){
 
 }
 
+void Scene::AddNoiseToMesh(double sd){
+
+    rendering_data.clear();
+
+    // Load M1
+    igl::readOFF(FILE_PATH "bun000.off", V1, F1);
+    igl::readOFF(FILE_PATH "bun045.off", V2, F2);
+
+    // M2' = M2
+    V2 = ICP::AddNoise(V2, sd);
+
+    // Display meshes
+    Eigen::MatrixXd V(V1.rows()+V2.rows(), V1.cols());
+    V << V1,V2;
+
+    Eigen::MatrixXi F(F1.rows()+F2.rows(),F1.cols());
+    F << F1, (F2.array()+V1.rows());
+    Eigen::MatrixXd C(F.rows(),3);
+    C <<
+      Eigen::RowVector3d(1.0,0.5,0.25).replicate(F1.rows(),1),
+            Eigen::RowVector3d(1.0,0.8,0.0).replicate(F2.rows(),1);
+
+    rendering_data.push_back(RenderingData{V,F,C});
+
+    Visualise(rendering_data.size());
+
+}
+
 void Scene::Point2PointAlignOptimised(){
 
     rendering_data.clear();
 
     Eigen::MatrixXd Vx = V2;
 
+    clock_t start_time = std::clock();
+
     // Use the subsample to perform ICP algorithm
     for (size_t i=0; i<iteration;i++){
-
         Vx = ICP::ICPOptimised(V1, Vx, subsample_rate);
-
-        // Generate data and store them for display
-        Eigen::MatrixXd V(V1.rows()+Vx.rows(), V1.cols());
-        V << V1,Vx;
-        Eigen::MatrixXi F(F1.rows()+F2.rows(),F1.cols());
-        F << F1,(F2.array()+V1.rows());
-        Eigen::MatrixXd C(F.rows(),3);
-        C <<
-          Eigen::RowVector3d(1.0,0.5,0.25).replicate(F1.rows(),1),
-                Eigen::RowVector3d(1.0,0.8,0.0).replicate(F2.rows(),1);
-
-        if (mark_out && i+1==iteration){
-
-            // Find non-overlapping area
-            // Vx to V1
-            std::pair<Eigen::MatrixXi, Eigen::MatrixXi> FF2 = ICP::FindNonOverlappingFaces(V1, Vx, F2);
-            // V1 to Vx
-            std::pair<Eigen::MatrixXi, Eigen::MatrixXi> FF1 = ICP::FindNonOverlappingFaces(Vx, V1, F1);
-
-            Eigen::MatrixXd V(V1.rows() + V1.rows() + Vx.rows()+ Vx.rows(), V1.cols());
-            V << V1,V1,Vx,Vx;
-
-            Eigen::MatrixXi F(FF1.first.rows()+FF1.second.rows()+FF2.first.rows()+FF2.second.rows(),F1.cols());
-            F << FF1.first, (FF1.second.array()+V1.rows()), (FF2.first.array()+V1.rows()+V1.rows()),(FF2.second.array()+Vx.rows() + V1.rows()+V1.rows());
-
-            Eigen::MatrixXd C(F.rows(),3);
-            C <<
-              Eigen::RowVector3d(1.0,0.8,0.0).replicate(FF1.first.rows(),1),
-                    Eigen::RowVector3d(1.0,0.0,0.0).replicate(FF1.second.rows(),1),
-                    Eigen::RowVector3d(1.0,0.5,0.25).replicate(FF2.first.rows(),1),
-                    Eigen::RowVector3d(1.0,0.0,0.0).replicate(FF2.second.rows(),1);
-
-            rendering_data.push_back(RenderingData{V,F,C});
-        }else{
-            rendering_data.push_back(RenderingData{V,F,C});
-        }
     }
 
-    Visualise(rendering_data.size());
+    double time_taken = (clock() - start_time) / (double) CLOCKS_PER_SEC;
+    std::cout << "ICP Optimised takes " + std::to_string(time_taken) + "s to complete " + std::to_string(iteration) + " iteration(s)" << std::endl;
 
+    // Generate data and store them for display
+    Eigen::MatrixXd V(V1.rows()+Vx.rows(), V1.cols());
+    V << V1,Vx;
+    Eigen::MatrixXi F(F1.rows()+F2.rows(),F1.cols());
+    F << F1,(F2.array()+V1.rows());
+    Eigen::MatrixXd C(F.rows(),3);
+    C <<
+      Eigen::RowVector3d(1.0,0.5,0.25).replicate(F1.rows(),1),
+      Eigen::RowVector3d(1.0,0.8,0.0).replicate(F2.rows(),1);
+
+    rendering_data.push_back(RenderingData{V,F,C});
+
+    Visualise(rendering_data.size());
 }
 
 void Scene::LoadMultiple(){
@@ -329,9 +369,28 @@ void Scene::MultiMeshAlign(){
 }
 
 void Scene::Point2PlaneAlign(){
-    
-    
-    
+    rendering_data.clear();
+
+    Eigen::MatrixXd Vx = V2;
+
+    // Use the subsample to perform ICP algorithm
+    for (size_t i=0; i<iteration;i++){
+        Vx = ICP::ICPNormalBased(V1, Vx);
+    }
+
+    // Generate data and store them for display
+    Eigen::MatrixXd V(V1.rows()+Vx.rows(), V1.cols());
+    V << V1,Vx;
+    Eigen::MatrixXi F(F1.rows()+F2.rows(),F1.cols());
+    F << F1,(F2.array()+V1.rows());
+    Eigen::MatrixXd C(F.rows(),3);
+    C <<
+      Eigen::RowVector3d(1.0,0.5,0.25).replicate(F1.rows(),1),
+            Eigen::RowVector3d(1.0,0.8,0.0).replicate(F2.rows(),1);
+
+    rendering_data.push_back(RenderingData{V,F,C});
+
+    Visualise(rendering_data.size());
 }
 
 void Scene::SetIteration(int i){
@@ -358,13 +417,16 @@ void Scene::Visualise(int i){
 }
 
 void Scene::SetSubsampleRate(double s){
-    if (s >= 0 && s <= 99){
-        subsample_rate = s;
-    }else {
-        subsample_rate = 0;
-    }
+    subsample_rate = s;
+    if (s < 0) subsample_rate = 0;
+    if (s >= 100) subsample_rate = 99;
     std::cout << "Subsample Rate: " + std::to_string(subsample_rate) + "%" << std::endl;
 }
+
+int Scene::GetRenderingDataSize(){
+    return rendering_data.size();
+};
+
 
 
 

@@ -52,13 +52,24 @@ int main(int argc, char *argv[]){
 
             if (ImGui::Checkbox("Show Non-Overlapping Area", &mark_out))
             {
+
                 scene.SetMarkOut(mark_out);
+
+                if (mark_out){
+
+                    scene.Visualise(2);
+
+                }else{
+
+                    scene.Visualise(1);
+
+                }
             }
 
-            if(ImGui::InputInt("Frame", &frame))
-            {
-                scene.Visualise(frame);
-            }
+//            if(ImGui::InputInt("Frame", &frame))
+//            {
+//                scene.Visualise(frame);
+//            }
         }
     };
     
@@ -76,26 +87,43 @@ int main(int argc, char *argv[]){
             }
         }
         
-        if (ImGui::CollapsingHeader("Task 2 ~ 3", ImGuiTreeNodeFlags_DefaultOpen))
+        if (ImGui::CollapsingHeader("Task 2", ImGuiTreeNodeFlags_DefaultOpen))
         {
             ImGui::InputDouble("Degree (X-Axis)", &rotation_x, 0, 0, "%.4f");
             ImGui::InputDouble("Degree (Y-Axis)", &rotation_y, 0, 0, "%.4f");
             ImGui::InputDouble("Degree (Z-Axis)", &rotation_z, 0, 0, "%.4f");
+
+            if (ImGui::Button("Rotate Mesh", ImVec2(-1, 0))){
+                scene.RotateMesh(rotation_x,rotation_y,rotation_z);
+            }
+            
+            if (ImGui::Button("Align Meshes", ImVec2(-1, 0))){
+                scene.Point2PointAlign();
+            }
+        }
+
+        if (ImGui::CollapsingHeader("Task 3", ImGuiTreeNodeFlags_DefaultOpen))
+        {
             ImGui::InputDouble("Zero-Mean Gaussian SD", &gaussian_sd, 0, 0, "%.4f");
+
+            if (ImGui::Button("Add Noise", ImVec2(-1, 0))){
+                scene.AddNoiseToMesh(gaussian_sd);
+            }
+
+            if (ImGui::Button("Align Meshes", ImVec2(-1, 0))){
+                scene.Point2PointAlign();
+            }
+
+        }
+
+        if (ImGui::CollapsingHeader("Task 4", ImGuiTreeNodeFlags_DefaultOpen))
+        {
 
             if(ImGui::InputDouble("Subsample Rate %", &subsample_rate, 0, 0, "%.4f"))
             {
                 scene.SetSubsampleRate(subsample_rate);
             }
 
-            if (ImGui::Button("Rotate Mesh with Noise", ImVec2(-1, 0))){
-                scene.RotateMeshWithNoise(rotation_x,rotation_y,rotation_z,gaussian_sd);
-            }
-            
-            if (ImGui::Button("Align Meshes", ImVec2(-1, 0))){
-                scene.Point2PointAlign();
-            }
-            
             if (ImGui::Button("Align Meshes (Optimised)", ImVec2(-1, 0))){
                 scene.Point2PointAlignOptimised();
             }
