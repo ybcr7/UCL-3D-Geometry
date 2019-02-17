@@ -30,8 +30,6 @@ public:
     void SetIteration(int i);
     void SetMarkOut(bool b);
     void SetSubsampleRate(double s);
-
-    int GetRenderingDataSize();
     
 private:
     
@@ -43,7 +41,6 @@ private:
     int iteration;
     double subsample_rate;
     bool mark_out;
-    const double loop_threshold = exp(-10);
 
     struct RenderingData;
 

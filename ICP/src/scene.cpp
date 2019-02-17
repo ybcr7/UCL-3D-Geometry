@@ -24,7 +24,7 @@ void Scene::Initialise(){
     rendering_data.clear();
 
     igl::readOFF(FILE_PATH "bun000.off", V1, F1);
-    igl::readOFF(FILE_PATH "bun045.off", V2, F2);
+    igl::readOFF(FILE_PATH "bun315.off", V2, F2);
 
     Eigen::MatrixXd V(V1.rows()+V2.rows(), V1.cols());
     V << V1,V2;
@@ -47,6 +47,9 @@ void Scene::Point2PointAlign(){
 
     Eigen::MatrixXd Vx = V2;
 
+    double last_distance = ICP::GetErrorMetric(V1, Vx);
+    int total_iteration = iteration;
+
     clock_t start_time = std::clock();
 
     for (size_t i=0; i<iteration;i++){
@@ -54,10 +57,21 @@ void Scene::Point2PointAlign(){
         std::pair<Eigen::MatrixXd, Eigen::MatrixXd> correspondences = ICP::FindCorrespondences(V1, Vx);
         std::pair<Eigen::Matrix3d, Eigen::RowVector3d> transform = ICP::EstimateRigidTransform(correspondences.first, correspondences.second);
         Vx = ICP::ApplyRigidTransform(Vx, transform);
+
+//        double current_distance = ICP::GetErrorMetric(V1, Vx);
+//
+//        if (last_distance > current_distance){
+//
+//            last_distance = current_distance;
+//        }else{
+//            total_iteration = i;
+//            break;
+//        }
     }
 
     double time_taken = (clock() - start_time) / (double) CLOCKS_PER_SEC;
-    std::cout << "ICP Basic takes " + std::to_string(time_taken) + "s to complete " + std::to_string(iteration) + " iteration(s)" << std::endl;
+
+    std::cout << "ICP Basic takes " + std::to_string(time_taken) + "s to complete " + std::to_string(total_iteration) + " iteration(s)" << std::endl;
 
     // Generate data and store them for display
     Eigen::MatrixXd V(V1.rows()+Vx.rows(), V1.cols());
@@ -166,15 +180,32 @@ void Scene::Point2PointAlignOptimised(){
 
     Eigen::MatrixXd Vx = V2;
 
+    double last_distance = ICP::GetErrorMetric(V1, Vx);
+    int total_iteration = iteration;
+
     clock_t start_time = std::clock();
 
     // Use the subsample to perform ICP algorithm
     for (size_t i=0; i<iteration;i++){
-        Vx = ICP::ICPOptimised(V1, Vx, subsample_rate);
+        Eigen::MatrixXd V_subsampled = ICP::GetSubsample(Vx, subsample_rate);
+        std::pair<Eigen::MatrixXd, Eigen::MatrixXd> correspondences = ICP::FindCorrespondences(V1, V_subsampled);
+        std::pair<Eigen::Matrix3d, Eigen::RowVector3d> transform = ICP::EstimateRigidTransform(correspondences.first, correspondences.second);
+        Vx =  ICP::ApplyRigidTransform(Vx, transform);
+
+        double current_distance = ICP::GetErrorMetric(V1, Vx);
+
+        if (last_distance > current_distance){
+
+            last_distance = current_distance;
+        }else{
+            total_iteration = i;
+            break;
+        }
+
     }
 
     double time_taken = (clock() - start_time) / (double) CLOCKS_PER_SEC;
-    std::cout << "ICP Optimised takes " + std::to_string(time_taken) + "s to complete " + std::to_string(iteration) + " iteration(s)" << std::endl;
+    std::cout << "ICP Optimised takes " + std::to_string(time_taken) + "s to complete " + std::to_string(total_iteration) + " iteration(s)" << std::endl;
 
     // Generate data and store them for display
     Eigen::MatrixXd V(V1.rows()+Vx.rows(), V1.cols());
@@ -240,130 +271,134 @@ void Scene::MultiMeshAlign(){
     Eigen::MatrixXd V5r = V5;
     Eigen::MatrixXi F5r = F5;
 
-//    for (size_t i=0; i<iteration;i++){
-//
-//        V2r = ICP::FindBestStartRotation(V1, V2r);
-//
-//        V2r = ICP::ICPBasic(V1, V2r);
-//
-//        Eigen::MatrixXd Vx(V1r.rows()+V2r.rows(), V1r.cols());
-//        Vx << V1r,V2r;
-//
-//        Eigen::MatrixXi Fx(F1r.rows()+F2r.rows(),F1r.cols());
-//        Fx << F1r, (F2r.array()+V1r.rows());
-//
-//        Eigen::MatrixXd Cx(Fx.rows(),3);
-//        Cx <<
-//        Eigen::RowVector3d(1.0,0.5,0.25).replicate(F1r.rows(),1),
-//        Eigen::RowVector3d(1.0,0.8,0.0).replicate(F2r.rows(),1);
-//
-//        V3r = ICP::FindBestStartRotation(Vx, V3r);
-//        V3r = ICP::ICPBasic(Vx, V3r);
-//
-//        Eigen::MatrixXd Vy(Vx.rows()+V3r.rows(), Vx.cols());
-//        Vy << Vx,V3r;
-//
-//        Eigen::MatrixXi Fy(Fx.rows()+F3r.rows(),Fx.cols());
-//        Fy << Fx, (F3r.array()+Vx.rows());
-//
-//        Eigen::MatrixXd Cy(Fy.rows(),3);
-//        Cy <<
-//        Eigen::RowVector3d(1.0,0.5,0.25).replicate(Fx.rows(),1),
-//        Eigen::RowVector3d(1.0,0.8,0.0).replicate(F3r.rows(),1);
-//
-//        V4r = ICP::FindBestStartRotation(Vy, V4r);
-//        V4r = ICP::ICPBasic(Vy, V4r);
-//
-//        Eigen::MatrixXd Vz(Vy.rows()+V4r.rows(), Vy.cols());
-//        Vz << Vy,V4r;
-//
-//        Eigen::MatrixXi Fz(Fy.rows()+F4r.rows(),Fy.cols());
-//        Fz << Fy, (F4r.array()+Vy.rows());
-//
-//        Eigen::MatrixXd Cz(Fz.rows(),3);
-//        Cz <<
-//        Eigen::RowVector3d(1.0,0.5,0.25).replicate(Fy.rows(),1),
-//        Eigen::RowVector3d(1.0,0.8,0.0).replicate(F4r.rows(),1);
-//
-//        V5r = ICP::FindBestStartRotation(Vz, V5r);
-//        V5r = ICP::ICPBasic(Vz, V5r);
-//
-//        Eigen::MatrixXd Vo(Vz.rows()+V5r.rows(), Vz.cols());
-//        Vo << Vz,V5r;
-//
-//        Eigen::MatrixXi Fo(Fz.rows()+F5r.rows(),Fz.cols());
-//        Fo << Fz, (F5r.array()+Vz.rows());
-//
-//        Eigen::MatrixXd Co(Fo.rows(),3);
-//        Co <<
-//        Eigen::RowVector3d(1.0,0.5,0.25).replicate(Fz.rows(),1),
-//        Eigen::RowVector3d(1.0,0.8,0.0).replicate(F5r.rows(),1);
-//
-//
-//        if (i+1==iteration){
-//            Eigen::MatrixXd C(Fo.rows(),3);
-//            C<<
-//            Eigen::RowVector3d(1.0,0.5,0.25).replicate(F1r.rows(),1),
-//            Eigen::RowVector3d(1.0,0.8,0.0).replicate(F2r.rows(),1),
-//            Eigen::RowVector3d(0.25,0.6,1.0).replicate(F3r.rows(),1),
-//            Eigen::RowVector3d(0.2,0.7,0.45).replicate(F4r.rows(),1),
-//            Eigen::RowVector3d(0.8,0.0,0.8).replicate(F5r.rows(),1);
-//            rendering_data.push_back(RenderingData{Vo,Fo,C});
-//        }else{
-//            rendering_data.push_back(RenderingData{Vo,Fo,Co});
-//        }
-//
+    clock_t start_time = std::clock();
+
+    for (size_t i=0; i<iteration;i++){
+
+        //V2r = ICP::FindBestStartRotation(V1, V2r);
+        V2r = ICP::ICPOptimised(V1, V2r, 95);
+
+        Eigen::MatrixXd Vx(V1r.rows()+V2r.rows(), V1r.cols());
+        Vx << V1r,V2r;
+
+        Eigen::MatrixXi Fx(F1r.rows()+F2r.rows(),F1r.cols());
+        Fx << F1r, (F2r.array()+V1r.rows());
+
+        Eigen::MatrixXd Cx(Fx.rows(),3);
+        Cx <<
+        Eigen::RowVector3d(1.0,0.5,0.25).replicate(F1r.rows(),1),
+        Eigen::RowVector3d(1.0,0.8,0.0).replicate(F2r.rows(),1);
+
+        //V3r = ICP::FindBestStartRotation(Vx, V3r);
+        V3r = ICP::ICPOptimised(Vx, V3r, 95);
+
+        Eigen::MatrixXd Vy(Vx.rows()+V3r.rows(), Vx.cols());
+        Vy << Vx,V3r;
+
+        Eigen::MatrixXi Fy(Fx.rows()+F3r.rows(),Fx.cols());
+        Fy << Fx, (F3r.array()+Vx.rows());
+
+        Eigen::MatrixXd Cy(Fy.rows(),3);
+        Cy <<
+        Eigen::RowVector3d(1.0,0.5,0.25).replicate(Fx.rows(),1),
+        Eigen::RowVector3d(1.0,0.8,0.0).replicate(F3r.rows(),1);
+
+        //V4r = ICP::FindBestStartRotation(Vy, V4r);
+        V4r = ICP::ICPOptimised(Vy, V4r, 95);
+
+        Eigen::MatrixXd Vz(Vy.rows()+V4r.rows(), Vy.cols());
+        Vz << Vy,V4r;
+
+        Eigen::MatrixXi Fz(Fy.rows()+F4r.rows(),Fy.cols());
+        Fz << Fy, (F4r.array()+Vy.rows());
+
+        Eigen::MatrixXd Cz(Fz.rows(),3);
+        Cz <<
+        Eigen::RowVector3d(1.0,0.5,0.25).replicate(Fy.rows(),1),
+        Eigen::RowVector3d(1.0,0.8,0.0).replicate(F4r.rows(),1);
+
+        //V5r = ICP::FindBestStartRotation(Vz, V5r);
+        V5r = ICP::ICPOptimised(Vz, V5r, 95);
+
+        Eigen::MatrixXd Vo(Vz.rows()+V5r.rows(), Vz.cols());
+        Vo << Vz,V5r;
+
+        Eigen::MatrixXi Fo(Fz.rows()+F5r.rows(),Fz.cols());
+        Fo << Fz, (F5r.array()+Vz.rows());
+
+        Eigen::MatrixXd Co(Fo.rows(),3);
+        Co <<
+        Eigen::RowVector3d(1.0,0.5,0.25).replicate(Fz.rows(),1),
+        Eigen::RowVector3d(1.0,0.8,0.0).replicate(F5r.rows(),1);
+
+
+
+        if (i+1==iteration){
+            Eigen::MatrixXd C(Fo.rows(),3);
+            C<<
+            Eigen::RowVector3d(1.0,0.5,0.25).replicate(F1r.rows(),1),
+            Eigen::RowVector3d(1.0,0.8,0.0).replicate(F2r.rows(),1),
+            Eigen::RowVector3d(0.25,0.6,1.0).replicate(F3r.rows(),1),
+            Eigen::RowVector3d(0.2,0.7,0.45).replicate(F4r.rows(),1),
+            Eigen::RowVector3d(0.8,0.0,0.8).replicate(F5r.rows(),1);
+            rendering_data.push_back(RenderingData{Vo,Fo,C});
+        }else{
+        }
+
+    }
+
+    double time_taken = (clock() - start_time) / (double) CLOCKS_PER_SEC;
+    std::cout << "ICP Optimised takes " + std::to_string(time_taken) + "s to complete " + std::to_string(iteration) + " iteration(s)" << std::endl;
+
+//    V2r = ICP::FindBestStartRotation(V1, V2r);
+//    for (size_t i=0; i<iteration;i++) {
+//        V2r = ICP::ICPOptimised(V1, V2r, 95);
 //    }
-
-    V2r = ICP::FindBestStartRotation(V1, V2r);
-    for (size_t i=0; i<iteration;i++) {
-        V2r = ICP::ICPOptimised(V1, V2r, subsample_rate);
-    }
-
-    Eigen::MatrixXd V12(V1.rows()+V2r.rows(), V1.cols());
-    V12<<V1, V2r;
-    Eigen::MatrixXi F12(F1.rows()+F2r.rows(), F1.cols());
-    F12<<F1, (F2r.array()+V1.rows());
-
-    V3r = ICP::FindBestStartRotation(V2r, V3r);
-    for (size_t i=0; i<iteration;i++) {
-        V3r = ICP::ICPOptimised(V12, V3r, subsample_rate);
-    }
-
-    Eigen::MatrixXd V123(V12.rows()+V3r.rows(), V1.cols());
-    V123<<V12, V3r;
-    Eigen::MatrixXi F123(F12.rows()+F3r.rows(), F1.cols());
-    F123<<F12, (F3r.array()+V12.rows());
-
-    V4r = ICP::FindBestStartRotation(V3r, V4r);
-    for (size_t i=0; i<iteration;i++) {
-        V4r = ICP::ICPOptimised(V123, V4r, subsample_rate);
-    }
-
-    Eigen::MatrixXd V1234(V123.rows()+V4r.rows(), V1.cols());
-    V1234<<V123, V4r;
-    Eigen::MatrixXi F1234(F123.rows()+F4r.rows(), F1.cols());
-    F1234<<F123,(F4r.array()+V123.rows());
-
-    V5r = ICP::FindBestStartRotation(V4r, V5r);
-    for (size_t i=0; i<iteration;i++) {
-        V5r = ICP::ICPOptimised(V1234, V5r, subsample_rate);
-    }
-
-    Eigen::MatrixXd V12345(V1234.rows()+V5.rows(), V1.cols());
-    V12345<<V1234, V5r;
-    Eigen::MatrixXi F12345(F1234.rows()+F5r.rows(), F1.cols());
-    F12345<<F1234,(F5r.array()+V1234.rows());
-
-    Eigen::MatrixXd C(F12345.rows(),3);
-    C<<
-    Eigen::RowVector3d(1.0,0.5,0.25).replicate(F1.rows(),1),
-    Eigen::RowVector3d(1.0,0.8,0.0).replicate(F2r.rows(),1),
-    Eigen::RowVector3d(0.25,0.6,1.0).replicate(F3r.rows(),1),
-    Eigen::RowVector3d(0.2,0.7,0.45).replicate(F4r.rows(),1),
-    Eigen::RowVector3d(0.8,0.0,0.8).replicate(F5r.rows(),1);
-
-    rendering_data.push_back(RenderingData{V12345,F12345,C});
+//
+//    Eigen::MatrixXd V12(V1.rows()+V2r.rows(), V1.cols());
+//    V12<<V1, V2r;
+//    Eigen::MatrixXi F12(F1.rows()+F2r.rows(), F1.cols());
+//    F12<<F1, (F2r.array()+V1.rows());
+//
+//    V3r = ICP::FindBestStartRotation(V2r, V3r);
+//    for (size_t i=0; i<iteration;i++) {
+//        V3r = ICP::ICPOptimised(V12, V3r, 95);
+//    }
+//
+//    Eigen::MatrixXd V123(V12.rows()+V3r.rows(), V1.cols());
+//    V123<<V12, V3r;
+//    Eigen::MatrixXi F123(F12.rows()+F3r.rows(), F1.cols());
+//    F123<<F12, (F3r.array()+V12.rows());
+//
+//    V4r = ICP::FindBestStartRotation(V3r, V4r);
+//    for (size_t i=0; i<iteration;i++) {
+//        V4r = ICP::ICPOptimised(V123, V4r, 95);
+//    }
+//
+//    Eigen::MatrixXd V1234(V123.rows()+V4r.rows(), V1.cols());
+//    V1234<<V123, V4r;
+//    Eigen::MatrixXi F1234(F123.rows()+F4r.rows(), F1.cols());
+//    F1234<<F123,(F4r.array()+V123.rows());
+//
+//    V5r = ICP::FindBestStartRotation(V4r, V5r);
+//    for (size_t i=0; i<iteration;i++) {
+//        V5r = ICP::ICPOptimised(V1234, V5r, 95);
+//    }
+//
+//    Eigen::MatrixXd V12345(V1234.rows()+V5.rows(), V1.cols());
+//    V12345<<V1234, V5r;
+//    Eigen::MatrixXi F12345(F1234.rows()+F5r.rows(), F1.cols());
+//    F12345<<F1234,(F5r.array()+V1234.rows());
+//
+//    Eigen::MatrixXd C(F12345.rows(),3);
+//    C<<
+//    Eigen::RowVector3d(1.0,0.5,0.25).replicate(F1.rows(),1),
+//    Eigen::RowVector3d(1.0,0.8,0.0).replicate(F2r.rows(),1),
+//    Eigen::RowVector3d(0.25,0.6,1.0).replicate(F3r.rows(),1),
+//    Eigen::RowVector3d(0.2,0.7,0.45).replicate(F4r.rows(),1),
+//    Eigen::RowVector3d(0.8,0.0,0.8).replicate(F5r.rows(),1);
+//
+//    rendering_data.push_back(RenderingData{V12345,F12345,C});
 
     Visualise(rendering_data.size());
 }
@@ -373,10 +408,19 @@ void Scene::Point2PlaneAlign(){
 
     Eigen::MatrixXd Vx = V2;
 
+    clock_t start_time = std::clock();
+
     // Use the subsample to perform ICP algorithm
     for (size_t i=0; i<iteration;i++){
-        Vx = ICP::ICPNormalBased(V1, Vx);
+        Eigen::MatrixXd N = ICP::GetVertexNormal(V1);
+        std::pair<std::pair<Eigen::MatrixXd, Eigen::MatrixXd>, Eigen::MatrixXd> correspondences = ICP::FindCorrespondencesNormalBased(V1, Vx, N);
+        std::pair<Eigen::Matrix3d, Eigen::RowVector3d> transform = ICP::EstimateRigidTransformNormalBased(correspondences.first.first, correspondences.second, correspondences.first.second);
+        Vx = ICP::ApplyRigidTransform(Vx, transform);
     }
+
+    double time_taken = (clock() - start_time) / (double) CLOCKS_PER_SEC;
+    std::cout << "ICP Basic takes " + std::to_string(time_taken) + "s to complete " + std::to_string(iteration) + " iteration(s)" << std::endl;
+
 
     // Generate data and store them for display
     Eigen::MatrixXd V(V1.rows()+Vx.rows(), V1.cols());
@@ -386,7 +430,7 @@ void Scene::Point2PlaneAlign(){
     Eigen::MatrixXd C(F.rows(),3);
     C <<
       Eigen::RowVector3d(1.0,0.5,0.25).replicate(F1.rows(),1),
-            Eigen::RowVector3d(1.0,0.8,0.0).replicate(F2.rows(),1);
+      Eigen::RowVector3d(1.0,0.8,0.0).replicate(F2.rows(),1);
 
     rendering_data.push_back(RenderingData{V,F,C});
 
@@ -422,14 +466,6 @@ void Scene::SetSubsampleRate(double s){
     if (s >= 100) subsample_rate = 99;
     std::cout << "Subsample Rate: " + std::to_string(subsample_rate) + "%" << std::endl;
 }
-
-int Scene::GetRenderingDataSize(){
-    return rendering_data.size();
-};
-
-
-
-
 
 //void Scene::Point2PointAlign() {
 //
