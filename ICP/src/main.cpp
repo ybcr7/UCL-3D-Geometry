@@ -82,7 +82,7 @@ int main(int argc, char *argv[]){
 
         if (ImGui::CollapsingHeader("Task 1", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            if (ImGui::Button("Align Meshes", ImVec2(-1, 0))){
+            if (ImGui::Button("Align Meshes (T1~3)", ImVec2(-1, 0))){
                 scene.Point2PointAlign();
             }
         }
@@ -96,10 +96,6 @@ int main(int argc, char *argv[]){
             if (ImGui::Button("Rotate Mesh", ImVec2(-1, 0))){
                 scene.RotateMesh(rotation_x,rotation_y,rotation_z);
             }
-            
-            if (ImGui::Button("Align Meshes", ImVec2(-1, 0))){
-                scene.Point2PointAlign();
-            }
         }
 
         if (ImGui::CollapsingHeader("Task 3", ImGuiTreeNodeFlags_DefaultOpen))
@@ -109,11 +105,6 @@ int main(int argc, char *argv[]){
             if (ImGui::Button("Add Noise", ImVec2(-1, 0))){
                 scene.AddNoiseToMesh(gaussian_sd);
             }
-
-            if (ImGui::Button("Align Meshes", ImVec2(-1, 0))){
-                scene.Point2PointAlign();
-            }
-
         }
 
         if (ImGui::CollapsingHeader("Task 4", ImGuiTreeNodeFlags_DefaultOpen))

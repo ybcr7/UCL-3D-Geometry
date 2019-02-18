@@ -346,6 +346,8 @@ std::pair<Eigen::MatrixXd, Eigen::MatrixXd> ICP::FindCorrespondences(Eigen::Matr
     //std::cout << "V_refined" + std::to_string(V_refined_out.rows()) << std::endl;
 
     return std::pair<Eigen::MatrixXd, Eigen::MatrixXd>(V_refined_out, V_refined_raw);
+
+    //return std::pair<Eigen::MatrixXd, Eigen::MatrixXd>(V_out, V_to_process);
 }
 
 std::pair<std::pair<Eigen::MatrixXd, Eigen::MatrixXd>, Eigen::MatrixXd> ICP::FindCorrespondencesNormalBased(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process, Eigen::MatrixXd N_target){
@@ -434,7 +436,7 @@ std::pair<std::pair<Eigen::MatrixXd, Eigen::MatrixXd>, Eigen::MatrixXd> ICP::Fin
 
 }
 
-std::pair<Eigen::Matrix3d, Eigen::RowVector3d> ICP::EstimateRigidTransform(Eigen::MatrixXd V_matched, Eigen::MatrixXd V_to_process){
+std::pair<double, std::pair<Eigen::Matrix3d, Eigen::RowVector3d>> ICP::EstimateRigidTransform(Eigen::MatrixXd V_matched, Eigen::MatrixXd V_to_process){
 
     // #Input: V1_Matched, V2_Matched
     // #Output: R, T
@@ -459,20 +461,23 @@ std::pair<Eigen::Matrix3d, Eigen::RowVector3d> ICP::EstimateRigidTransform(Eigen
 
     for (size_t i=0; i<V_matched.rows(); i++){
 
-        Eigen::Vector3d q_i = q_hat.row(i);
         Eigen::Vector3d p_i = p_hat.row(i);
+        Eigen::Vector3d q_i = q_hat.row(i);
 
         A += q_i * p_i.transpose();
     }
 
     Eigen::JacobiSVD<Eigen::MatrixXd> svd(A, Eigen::ComputeThinU | Eigen::ComputeThinV);
-    Eigen::MatrixXd R = svd.matrixU() * svd.matrixV().transpose();
-    Eigen::RowVector3d T = p_bar - q_bar * R;
+    Eigen::MatrixXd R = svd.matrixV() * svd.matrixU().transpose();
+    Eigen::RowVector3d T = p_bar - (R * q_bar.transpose()).transpose();
 
     transform.first = R;
     transform.second = T;
 
-    return transform;
+    //
+    double error_metric = GetErrorMetric(V_matched, ApplyRigidTransform(V_to_process,transform));
+
+    return std::pair<double, std::pair<Eigen::Matrix3d, Eigen::RowVector3d>> (error_metric, transform);
 
 }
 
@@ -532,7 +537,7 @@ std::pair<Eigen::Matrix3d, Eigen::RowVector3d> ICP::EstimateRigidTransformNormal
 
     Eigen::RowVector3d T(x(3),x(4),x(5));
 
-    return std::pair<Eigen::Matrix3d, Eigen::RowVector3d>(R.transpose(),T);
+    return std::pair<Eigen::Matrix3d, Eigen::RowVector3d>(R,T);
 
 }
 
@@ -548,30 +553,37 @@ Eigen::MatrixXd ICP::ApplyRigidTransform(Eigen::MatrixXd V_to_process, std::pair
     // According to the formula, p = Rq + t
     for (size_t i=0;i<V_to_process.rows();i++){
         Eigen::Vector3d row = V_to_process.row(i);
-        V_out.row(i) = (row.transpose() * transform.first + transform.second).transpose();
+        V_out.row(i) = (transform.first * row).transpose() + transform.second;
     }
 
     return V_out;
 }
 
-
 Eigen::MatrixXd ICP::ICPOptimised(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process, double subsample_rate){
     Eigen::MatrixXd V_subsampled = GetSubsample(V_to_process, subsample_rate);
     std::pair<Eigen::MatrixXd, Eigen::MatrixXd> correspondences = FindCorrespondences(V_target, V_subsampled);
-    std::pair<Eigen::Matrix3d, Eigen::RowVector3d> transform = ICP::EstimateRigidTransform(correspondences.first, correspondences.second);
-    return ICP::ApplyRigidTransform(V_to_process, transform);
+    std::pair<double, std::pair<Eigen::Matrix3d, Eigen::RowVector3d>> transform_info = ICP::EstimateRigidTransform(correspondences.first, correspondences.second);
+    return ICP::ApplyRigidTransform(V_to_process, transform_info.second);
 }
 
-Eigen::MatrixXd ICP::ICPNormalBased(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process){
-    Eigen::MatrixXd N = GetVertexNormal(V_target);
-    std::pair<std::pair<Eigen::MatrixXd, Eigen::MatrixXd>, Eigen::MatrixXd> correspondences = FindCorrespondencesNormalBased(V_target, V_to_process, N);
-    std::pair<Eigen::Matrix3d, Eigen::RowVector3d> transform = ICP::EstimateRigidTransformNormalBased(correspondences.first.first, correspondences.second, correspondences.first.second);
-    return ICP::ApplyRigidTransform(V_to_process, transform);
-}
+//Eigen::MatrixXd ICP::ICPNormalBased(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process){
+////    Eigen::MatrixXd N = GetVertexNormal(V_target);
+////    std::pair<std::pair<Eigen::MatrixXd, Eigen::MatrixXd>, Eigen::MatrixXd> correspondences = FindCorrespondencesNormalBased(V_target, V_to_process, N);
+////    std::pair<Eigen::Matrix3d, Eigen::RowVector3d> transform = ICP::EstimateRigidTransformNormalBased(correspondences.first.first, correspondences.second, correspondences.first.second);
+////    return ICP::ApplyRigidTransform(V_to_process, transform);
+////}
 
 double ICP::GetErrorMetric(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process){
-    Eigen::RowVector3d center_target = V_target.colwise().sum()/ double(V_target.rows());
-    Eigen::RowVector3d center_to_process = V_to_process.colwise().sum()/ double(V_to_process.rows());
-    return (center_target - center_to_process).norm();
-}
 
+    double error_metric = 0.0;
+    for (size_t i = 0; i < V_target.rows(); i++)
+    {
+        Eigen::RowVector3d V_i_target = V_target.row(i);
+        Eigen::RowVector3d V_i_to_process = V_to_process.row(i);
+        error_metric += (V_i_target - V_i_to_process).squaredNorm();
+    }
+
+    // Return normalised error
+    return error_metric/V_target.rows();
+
+}

@@ -8,7 +8,7 @@ namespace ICP{
 
     std::pair<Eigen::MatrixXd, Eigen::MatrixXd> FindCorrespondences(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process);
 
-    std::pair<Eigen::Matrix3d, Eigen::RowVector3d> EstimateRigidTransform(Eigen::MatrixXd V_matched, Eigen::MatrixXd V_to_process);
+    std::pair<double, std::pair<Eigen::Matrix3d, Eigen::RowVector3d>> EstimateRigidTransform(Eigen::MatrixXd V_matched, Eigen::MatrixXd V_to_process);
 
     std::pair<std::pair<Eigen::MatrixXd, Eigen::MatrixXd>, Eigen::MatrixXd> FindCorrespondencesNormalBased(Eigen::MatrixXd V_target, Eigen::MatrixXd V_to_process, Eigen::MatrixXd N_target);
 
