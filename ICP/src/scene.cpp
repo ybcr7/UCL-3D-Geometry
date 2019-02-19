@@ -3,7 +3,7 @@
 #include "scene.h"
 #include "icp.h"
 
-#define FILE_PATH "../data/"
+#define FILE_PATH "data/"
 
 struct Scene::RenderingData{
     Eigen::MatrixXd V;
