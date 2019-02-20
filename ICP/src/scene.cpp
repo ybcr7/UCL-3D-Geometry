@@ -3,7 +3,7 @@
 #include "scene.h"
 #include "icp.h"
 
-#define FILE_PATH "data/"
+#define FILE_PATH "../data/"
 
 struct Scene::RenderingData{
     Eigen::MatrixXd V;
@@ -150,7 +150,7 @@ void Scene::AddNoiseToMesh(double sd){
     rendering_data.clear();
 
     // Load M1
-    igl::readOFF(FILE_PATH "bun000.off", V1, F1);
+    igl::readOFF(FILE_PATH "ear_back.off", V1, F1);
     igl::readOFF(FILE_PATH "bun045.off", V2, F2);
 
     // M2' = M2
@@ -220,12 +220,14 @@ void Scene::Point2PointAlignOptimised(){
 void Scene::LoadMultiple(){
     
     rendering_data.clear();
-    
-    igl::readOFF(FILE_PATH "bun315.off", V1, F1);
-    igl::readOFF(FILE_PATH "bun270.off", V2, F2);
-    igl::readOFF(FILE_PATH "bun000.off", V3, F3);
-    igl::readOFF(FILE_PATH "bun045.off", V4, F4);
-    igl::readOFF(FILE_PATH "bun090.off", V5, F5);
+
+    //315,045,000,270,090
+
+    igl::readOFF(FILE_PATH "bun315.off", V1, F1);//Orange
+    igl::readOFF(FILE_PATH "bun045.off", V2, F2);//Yellow
+    igl::readOFF(FILE_PATH "bun000.off", V3, F3);//Blue
+    igl::readOFF(FILE_PATH "bun270.off", V4, F4);//Green
+    igl::readOFF(FILE_PATH "bun090.off", V5, F5);//Pink
 //    igl::readOFF(FILE_PATH "bun315.off", V6, F6);
     
     // Display meshes
@@ -386,11 +388,11 @@ void Scene::MultiMeshAlign(){
 
     Eigen::MatrixXd C(F12345.rows(),3);
     C<<
-    Eigen::RowVector3d(1.0,0.5,0.25).replicate(F1.rows(),1),
-    Eigen::RowVector3d(1.0,0.8,0.0).replicate(F2r.rows(),1),
-    Eigen::RowVector3d(0.25,0.6,1.0).replicate(F3r.rows(),1),
-    Eigen::RowVector3d(0.2,0.7,0.45).replicate(F4r.rows(),1),
-    Eigen::RowVector3d(0.8,0.0,0.8).replicate(F5r.rows(),1);
+    Eigen::RowVector3d(1.0,0.5,0.25).replicate(F1.rows(),1),//Orange
+    Eigen::RowVector3d(1.0,0.8,0.0).replicate(F2r.rows(),1),//Yellow
+    Eigen::RowVector3d(0.25,0.6,1.0).replicate(F3r.rows(),1),//Blue
+    Eigen::RowVector3d(0.2,0.7,0.45).replicate(F4r.rows(),1),//Green
+    Eigen::RowVector3d(0.8,0.0,0.8).replicate(F5r.rows(),1);//Pink
 
     rendering_data.push_back(RenderingData{V12345,F12345,C});
 
