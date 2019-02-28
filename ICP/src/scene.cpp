@@ -83,36 +83,36 @@ void Scene::Point2PointAlign(){
     rendering_data.push_back(RenderingData{V,F,C});
 
     Visualise(rendering_data.size());
-//
-//    // Find non-overlapping area
-//    // Vx to V1
-//    std::pair<Eigen::MatrixXi, Eigen::MatrixXi> FF2 = ICP::FindNonOverlappingFaces(V1, Vx, F2);
-//    // V1 to Vx
-//    std::pair<Eigen::MatrixXi, Eigen::MatrixXi> FF1 = ICP::FindNonOverlappingFaces(Vx, V1, F1);
-//
-//    Eigen::MatrixXd VM(V1.rows() + V1.rows() + Vx.rows() + Vx.rows(), V1.cols());
-//    VM << V1, V1, Vx, Vx;
-//
-//    Eigen::MatrixXi FM(FF1.first.rows() + FF1.second.rows() + FF2.first.rows() + FF2.second.rows(),
-//                      F1.cols());
-//    FM << FF1.first, (FF1.second.array() + V1.rows()), (FF2.first.array() + V1.rows() + V1.rows()), (
-//            FF2.second.array() + Vx.rows() + V1.rows() + V1.rows());
-//
-//    Eigen::MatrixXd CM(FM.rows(), 3);
-//    CM <<
-//      Eigen::RowVector3d(1.0, 0.5, 0.25).replicate(FF1.first.rows(), 1),
-//            Eigen::RowVector3d(1.0, 0.0, 0.0).replicate(FF1.second.rows(), 1),
-//            Eigen::RowVector3d(1.0, 0.8, 0.0).replicate(FF2.first.rows(), 1),
-//            Eigen::RowVector3d(1.0, 0.0, 0.0).replicate(FF2.second.rows(), 1);
-//
-//    rendering_data.push_back(RenderingData{VM, FM, CM});
-//
-//    if (mark_out){
-//        Visualise(rendering_data.size());
-//
-//    }else{
-//        Visualise(rendering_data.size()-1);
-//    }
+
+    // Find non-overlapping area
+    // Vx to V1
+    std::pair<Eigen::MatrixXi, Eigen::MatrixXi> FF2 = ICP::FindNonOverlappingFaces(V1, Vx, F2);
+    // V1 to Vx
+    std::pair<Eigen::MatrixXi, Eigen::MatrixXi> FF1 = ICP::FindNonOverlappingFaces(Vx, V1, F1);
+
+    Eigen::MatrixXd VM(V1.rows() + V1.rows() + Vx.rows() + Vx.rows(), V1.cols());
+    VM << V1, V1, Vx, Vx;
+
+    Eigen::MatrixXi FM(FF1.first.rows() + FF1.second.rows() + FF2.first.rows() + FF2.second.rows(),
+                      F1.cols());
+    FM << FF1.first, (FF1.second.array() + V1.rows()), (FF2.first.array() + V1.rows() + V1.rows()), (
+            FF2.second.array() + Vx.rows() + V1.rows() + V1.rows());
+
+    Eigen::MatrixXd CM(FM.rows(), 3);
+    CM <<
+      Eigen::RowVector3d(1.0, 0.5, 0.25).replicate(FF1.first.rows(), 1),
+            Eigen::RowVector3d(1.0, 0.0, 0.0).replicate(FF1.second.rows(), 1),
+            Eigen::RowVector3d(1.0, 0.8, 0.0).replicate(FF2.first.rows(), 1),
+            Eigen::RowVector3d(1.0, 0.0, 0.0).replicate(FF2.second.rows(), 1);
+
+    rendering_data.push_back(RenderingData{VM, FM, CM});
+
+    if (mark_out){
+        Visualise(rendering_data.size());
+
+    }else{
+        Visualise(rendering_data.size()-1);
+    }
 
 
 }
@@ -150,7 +150,7 @@ void Scene::AddNoiseToMesh(double sd){
     rendering_data.clear();
 
     // Load M1
-    igl::readOFF(FILE_PATH "ear_back.off", V1, F1);
+    igl::readOFF(FILE_PATH "bun000.off", V1, F1);
     igl::readOFF(FILE_PATH "bun045.off", V2, F2);
 
     // M2' = M2
@@ -227,7 +227,8 @@ void Scene::LoadMultiple(){
     igl::readOFF(FILE_PATH "bun045.off", V2, F2);//Yellow
     igl::readOFF(FILE_PATH "bun000.off", V3, F3);//Blue
     igl::readOFF(FILE_PATH "bun270.off", V4, F4);//Green
-    igl::readOFF(FILE_PATH "bun090.off", V5, F5);//Pink
+    igl::readOFF(FILE_PATH "bun180.off", V5, F5);//Pink
+    V5 = ICP::Rotate(V5, 0, 180, 0);
 //    igl::readOFF(FILE_PATH "bun315.off", V6, F6);
     
     // Display meshes
@@ -398,8 +399,6 @@ void Scene::MultiMeshAlign(){
 
     double time_taken = (clock() - start_time) / (double) CLOCKS_PER_SEC;
     std::cout << "ICP Optimised takes " + std::to_string(time_taken) + "s to complete " + std::to_string(iteration) + " iteration(s)" << std::endl;
-
-
 
     Visualise(rendering_data.size());
 }
