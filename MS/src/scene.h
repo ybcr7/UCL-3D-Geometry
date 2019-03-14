@@ -5,45 +5,34 @@ public:
     Scene(igl::opengl::glfw::Viewer& refViewer);
     ~Scene();
     
-    // Task 1
-    void Point2PointAlign();
-    
-    // Task 2
-    void RotateMesh(double x, double y, double z);
+    // Part A: Discrete Curvature and Spectral Meshes
+    void Discretisation(int mode);
+    void Reconstruction();
 
-    // Task 3
-    void AddNoiseToMesh(double sd);
-    
-    // Task 4
-    void Point2PointAlignOptimised();
-    
-    // Task 5
-    void LoadMultiple();
-    void MultiMeshAlign();
-    
-    // Task 6
-    void Point2PlaneAlign();
-    
+    // Part B: Laplacian Mesh Smoothing
+    void Smoothing(int mode);
+    void AddNoise();
+
     // Utility
-    void Initialise();
+    void Initialise(std::string filename);
     void Visualise(int i);
+    void SetNumEigenvector(int e);
     void SetIteration(int i);
-    void SetMarkOut(bool b);
-    void SetSubsampleRate(double s);
+    void SetLambda(double l);
+    void SetNoise(double n);
     
 private:
     
     igl::opengl::glfw::Viewer& viewer;
     
-    Eigen::MatrixXd V1, V2, V3, V4, V5;
-    Eigen::MatrixXi F1, F2, F3, F4, F5;
+    Eigen::MatrixXd V;
+    Eigen::MatrixXi F;
     
     int iteration;
-    double subsample_rate;
-    bool mark_out;
+    double lambda;
+    double noise;
+    int eigenvector;
 
     struct RenderingData;
-
-    // Can record the entire ICP matching process
     std::vector<RenderingData> rendering_data;
 };

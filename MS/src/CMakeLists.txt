@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.1)
-project(lap)
+project(ms)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
@@ -14,9 +14,9 @@ find_package(LIBIGL REQUIRED QUIET)
 #file(GLOB SRC_FILES *.cpp)
 
 set(SRC_FILES ${PROJECT_SOURCE_DIR}/main.cpp
-${PROJECT_SOURCE_DIR}/icp.cpp
+${PROJECT_SOURCE_DIR}/ms.cpp
 ${PROJECT_SOURCE_DIR}/scene.cpp
-${PROJECT_SOURCE_DIR}/icp.h
+${PROJECT_SOURCE_DIR}/ms.h
 ${PROJECT_SOURCE_DIR}/scene.h
 ${PROJECT_SOURCE_DIR}/nanoflann.hpp
 )
