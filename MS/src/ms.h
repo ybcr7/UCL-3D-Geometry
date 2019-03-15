@@ -7,8 +7,8 @@ namespace MS{
     Eigen::VectorXd NonUniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
     std::pair<Eigen::MatrixXd, Eigen::MatrixXi> Reconstruction(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
 
-    Eigen::SparseMatrix<double> UniformLaplacianMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
-    Eigen::SparseMatrix<double> NonUniformLaplacianMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
+    Eigen::SparseMatrix<double> LaplacianMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
+    Eigen::SparseMatrix<double> CotangentMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
     Eigen::SparseMatrix<double> BarycentricArea(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
 
 

@@ -25,7 +25,7 @@ int main(int argc, char *argv[]){
     double noise = 0.0;
     int eigenvector = 1;
     static const char *models[]{"cube.off","bunny.off","camel.off","camelhead.off","cow.off","dragon.off"};
-    static int model_index = 2;
+    static int model_index = 3;
 
     // Draw an optional panel for adjusting global variables
     menu.callback_draw_viewer_menu = [&]()

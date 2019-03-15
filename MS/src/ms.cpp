@@ -11,10 +11,11 @@
 #include <igl/adjacency_list.h>
 #include <igl/fit_plane.h>
 #include <igl/doublearea.h>
+#include <igl/cotmatrix.h>
 #include "nanoflann.hpp"
 #include "ms.h"
 
-Eigen::SparseMatrix<double> MS::UniformLaplacianMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in) {
+Eigen::SparseMatrix<double> MS::LaplacianMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in) {
     Eigen::SparseMatrix<double> laplacian_matrix(V_in.rows(), V_in.rows());
     std::vector<std::vector<int>> V_adjacent;
     igl::adjacency_list(F_in, V_adjacent);
@@ -32,30 +33,59 @@ Eigen::SparseMatrix<double> MS::UniformLaplacianMatrix(Eigen::MatrixXd V_in, Eig
     return laplacian_matrix;
 }
 
-Eigen::SparseMatrix<double> MS::NonUniformLaplacianMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in) {
-    Eigen::SparseMatrix<double> laplacian_matrix(V_in.rows(), V_in.rows());
+Eigen::SparseMatrix<double> MS::CotangentMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in){
+    Eigen::SparseMatrix<double> contangent_sparse;
 
+    Eigen::Vector3d cotangent_sum_each_vertex(V_in.rows());
+    Eigen::SparseMatrix<double> area = BarycentricArea(V_in, F_in);
 
-//    for (int i = 0; i < V_in.rows(); i++){
-//        int num_adjacent_vertex = V_adjacent.size();
-//
-//        for (int j = 0; j < num_adjacent_vertex; j ++){
-//            laplacian_matrix.insert(i, V_adjacent[i][j]) = 1.0 / num_adjacent_vertex;
-//        }
-//
-//        laplacian_matrix.insert(i,i) = -1.0;
-//
-//    }
-//
-//    return laplacian_matrix;
+    std::vector<std::vector<int>> V_adjacent;
+    igl::adjacency_list(F_in, V_adjacent, true);
+
+    Eigen::Vector3d V_current, V_1, V_2, V_3;
+
+    for (int i = 0; i < V_adjacent.size(); i++){
+        double sum_cotangent = 0;
+        V_current = V_in.row(i);
+        for (int j = 0; j < V_adjacent[i].size(); j++){
+            if (j == 0){
+                V_1 = V_in.row(V_adjacent[i][V_adjacent[i].back()]);
+                V_2 = V_in.row(V_adjacent[i][j]);
+                V_3 = V_in.row(V_adjacent[i][j+1]);
+            }
+            else if (j == V_adjacent[i].size()){
+                V_1 = V_in.row(V_adjacent[i][j-1]);
+                V_1 = V_in.row(V_adjacent[i][j]);
+                V_2 = V_in.row(V_adjacent[i][0]);
+            }else{
+                V_1 = V_in.row(V_adjacent[i][j-1]);
+                V_2 = V_in.row(V_adjacent[i][j]);
+                V_3 = V_in.row(V_adjacent[i][j+1]);
+            }
+
+            double cosine_alpha = (V_current - V_1).dot(V_2 - V_1)/((V_current - V_1).norm()*(V_2 - V_1).norm());
+            double cosine_beta = (V_current - V_3).dot(V_2 - V_3)/((V_current - V_3).norm()*(V_2 - V_3).norm());
+            double sum = cosine_alpha/std::sin(std::acos(cosine_alpha)) + cosine_beta/std::sin(std::acos(cosine_beta));
+
+            sum_cotangent += sum;
+        }
+        cotangent_sum_each_vertex[i] = sum_cotangent;
+    }
+
+    // Convert the column to diagonal
+    Eigen::MatrixXd cotangent_dense(cotangent_sum_each_vertex.asDiagonal());
+
+    // Convert the dense matrix to sparse
+    contangent_sparse = cotangent_dense.sparseView();
+
+    return contangent_sparse;
 
 }
-
 
 Eigen::SparseMatrix<double> MS::BarycentricArea(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in){
     Eigen::SparseMatrix<double> area_sparse;
 
-    Eigen::MatrixXd area_each_vertex(V_in.rows(),1);
+    Eigen::VectorXd area_each_vertex(V_in.rows());
 
     // Compute the area for each face in the mesh
     Eigen::MatrixXd area_value_list;
@@ -71,7 +101,7 @@ Eigen::SparseMatrix<double> MS::BarycentricArea(Eigen::MatrixXd V_in, Eigen::Mat
         for (int j = 0; j < faces.size(); j++){
             total_area += area_value_list.row(faces[j])[0];
         }
-        area_each_vertex.row(i)[0] = total_area/3;
+        area_each_vertex[i] = total_area/3;
     }
 
     // Convert the column to diagonal
@@ -83,14 +113,12 @@ Eigen::SparseMatrix<double> MS::BarycentricArea(Eigen::MatrixXd V_in, Eigen::Mat
     return area_sparse;
 }
 
-
-
 Eigen::VectorXd MS::UniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in){
 
     Eigen::VectorXd H(V_in.rows());
     H.setZero();
 
-    Eigen::MatrixXd laplacian_dense = UniformLaplacianMatrix(V_in,F_in).toDense();
+    Eigen::MatrixXd laplacian_dense = LaplacianMatrix(V_in,F_in).toDense();
     Eigen::MatrixXd laplacian_vertex = laplacian_dense * V_in;
 
     H = 0.5 * (laplacian_vertex).rowwise().norm();
@@ -99,6 +127,34 @@ Eigen::VectorXd MS::UniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixXi F
 
 Eigen::VectorXd MS::UniformGaussianCurvature(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in){
 
+    Eigen::VectorXd k_each_vertex(V_in.rows());
+    Eigen::SparseMatrix<double> area = BarycentricArea(V_in, F_in);
+
+    std::vector<std::vector<int>> V_adjacent;
+    igl::adjacency_list(F_in, V_adjacent, true);
+
+    Eigen::Vector3d V_current, V_1, V_2;
+
+    for (int i = 0; i < V_adjacent.size(); i++){
+        double sum_theta = 0;
+        V_current = V_in.row(i);
+        for (int j = 0; j < V_adjacent[i].size(); j++){
+
+            if (j == V_adjacent[i].size()){
+                V_1 = V_in.row(V_adjacent[i][j]);
+                V_2 = V_in.row(V_adjacent[i][V_adjacent[i].front()]);
+            }else{
+                V_1 = V_in.row(V_adjacent[i][j]);
+                V_2 = V_in.row(V_adjacent[i][j+1]);
+            }
+
+            double theta = std::acos((V_1 - V_current).dot(V_2 - V_current)/((V_1 - V_current).norm() * (V_2 - V_current).norm()));
+            sum_theta += theta;
+        }
+        k_each_vertex[i] = (2*M_PI-sum_theta)/area.coeff(i,i);
+    }
+
+    return k_each_vertex;
 }
 
 Eigen::VectorXd MS::NonUniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in){
@@ -106,20 +162,22 @@ Eigen::VectorXd MS::NonUniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixX
     Eigen::VectorXd H(V_in.rows());
     H.setZero();
 
-    Eigen::SparseMatrix<double> area_inverse,laplacian;
+    Eigen::SparseMatrix<double> area,laplacian;
 
-    laplacian =  UniformLaplacianMatrix(V_in, F_in);
-    area_inverse = BarycentricArea(V_in, F_in);
+    laplacian = CotangentMatrix(V_in, F_in);
+    //igl::cotmatrix(V_in, F_in, laplacian);
+    //laplacian =  LaplacianMatrix(V_in, F_in);
+    area = BarycentricArea(V_in, F_in);
 
-    Eigen::SparseMatrix<double> AreaInv(V_in.rows(), V_in.rows());
+    Eigen::SparseMatrix<double> area_inverse(V_in.rows(), V_in.rows());
 
     for (int i = 0; i < V_in.rows(); i++)
     {
-        AreaInv.insert(i, i) = 1 / area_inverse.coeff(i, i);
+        area_inverse.insert(i, i) = 1 / area.coeff(i, i);
     }
 
     Eigen::SparseMatrix<double> sparse_matrix(V_in.rows(), V_in.rows());
-    sparse_matrix = AreaInv * laplacian;
+    sparse_matrix = area_inverse * laplacian;
     //cout << "sparse_matrix " << sparse_matrix.rows() << endl;
     Eigen::MatrixXd dsM = sparse_matrix.toDense();
     Eigen::MatrixXd laplacian_vertex = dsM * V_in;
@@ -128,7 +186,6 @@ Eigen::VectorXd MS::NonUniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixX
     return H;
 
 }
-
 
 Eigen::MatrixXd MS::AddNoise(Eigen::MatrixXd V_in, double noise){
     
@@ -161,3 +218,4 @@ Eigen::MatrixXd MS::AddNoise(Eigen::MatrixXd V_in, double noise){
     return V_out;
     
 }
+
