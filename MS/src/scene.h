@@ -15,7 +15,7 @@ public:
 
     // Utility
     void Initialise(std::string filename);
-    void Visualise(int i);
+    void Visualise();
     void SetNumEigenvector(int e);
     void SetIteration(int i);
     void SetLambda(double l);
@@ -27,6 +27,7 @@ private:
     
     Eigen::MatrixXd V;
     Eigen::MatrixXi F;
+    Eigen::MatrixXd C;
     
     int iteration;
     double lambda;

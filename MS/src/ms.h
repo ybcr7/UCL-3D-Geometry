@@ -2,14 +2,19 @@
 
 namespace MS{
 
-    std::pair<Eigen::MatrixXd, Eigen::MatrixXi> UniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
-    std::pair<Eigen::MatrixXd, Eigen::MatrixXi> UniformGaussianCurvature(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
-    std::pair<Eigen::MatrixXd, Eigen::MatrixXi> NonUniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
+    Eigen::VectorXd UniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
+    Eigen::VectorXd UniformGaussianCurvature(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
+    Eigen::VectorXd NonUniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
     std::pair<Eigen::MatrixXd, Eigen::MatrixXi> Reconstruction(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
+
+    Eigen::SparseMatrix<double> UniformLaplacianMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
+    Eigen::SparseMatrix<double> NonUniformLaplacianMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
+    Eigen::SparseMatrix<double> BarycentricArea(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
+
 
     std::pair<Eigen::MatrixXd, Eigen::MatrixXi> ExplicitSmoothing(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
     std::pair<Eigen::MatrixXd, Eigen::MatrixXi> ImplicitSmoothing(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
 
-    Eigen::MatrixXd AddNoise(Eigen::MatrixXd V_in, double sd);
+    Eigen::MatrixXd AddNoise(Eigen::MatrixXd V_in, double noise);
 }
 

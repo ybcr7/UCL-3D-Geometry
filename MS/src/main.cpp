@@ -24,10 +24,8 @@ int main(int argc, char *argv[]){
     double lambda = 0.0;
     double noise = 0.0;
     int eigenvector = 1;
-    static const char *models[]{"cube.off","bunny.off","camel.off","cow.off","dragon.off"};
-    static int model_index = 0;
-
-    std::string filename = "cube.off";
+    static const char *models[]{"cube.off","bunny.off","camel.off","camelhead.off","cow.off","dragon.off"};
+    static int model_index = 2;
 
     // Draw an optional panel for adjusting global variables
     menu.callback_draw_viewer_menu = [&]()
@@ -55,7 +53,7 @@ int main(int argc, char *argv[]){
         ImGui::SetNextWindowSize(ImVec2(448, 384), ImGuiSetCond_FirstUseEver);
         ImGui::Begin( "Operations", nullptr, ImGuiWindowFlags_NoSavedSettings );
 
-        if (ImGui::CollapsingHeader("Discretisation", ImGuiTreeNodeFlags_DefaultOpen))
+        if (ImGui::CollapsingHeader("Curvature Discretisation", ImGuiTreeNodeFlags_DefaultOpen))
         {
             if (ImGui::Button("Uniform Mean Curvature", ImVec2(-1, 0))){
                 scene.Discretisation(0);
@@ -70,13 +68,13 @@ int main(int argc, char *argv[]){
             }
         }
 
-        if (ImGui::CollapsingHeader("Reconstruction", ImGuiTreeNodeFlags_DefaultOpen))
+        if (ImGui::CollapsingHeader("Mesh Reconstruction", ImGuiTreeNodeFlags_DefaultOpen))
         {
             if(ImGui::InputInt("Number of Eigenvectors", &eigenvector)){
                 scene.SetNumEigenvector(eigenvector);
             }
 
-            if (ImGui::Button("Uniform Mean Curvature", ImVec2(-1, 0))){
+            if (ImGui::Button("Reconstruction", ImVec2(-1, 0))){
                 scene.Reconstruction();
             }
         }
