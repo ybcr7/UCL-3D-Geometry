@@ -12,6 +12,7 @@
 #include <igl/fit_plane.h>
 #include <igl/doublearea.h>
 #include <igl/cotmatrix.h>
+#include <igl/massmatrix.h>
 #include "nanoflann.hpp"
 #include "ms.h"
 
@@ -35,19 +36,16 @@ Eigen::SparseMatrix<double> MS::LaplacianMatrix(Eigen::MatrixXd V_in, Eigen::Mat
 
 Eigen::SparseMatrix<double> MS::CotangentMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in){
 
-    Eigen::SparseMatrix<double> contangent_sparse;
-
-    Eigen::VectorXd cotangent_sum_each_vertex(V_in.rows());
-
+    Eigen::SparseMatrix<double> contangent_matrix(V_in.rows(), V_in.rows());
     std::vector<std::vector<int>> V_adjacent;
-
     igl::adjacency_list(F_in, V_adjacent, true);
-
     Eigen::Vector3d V_current, V_1, V_2, V_3;
 
     for (int i = 0; i < V_adjacent.size(); i++){
+
         double sum_cotangent = 0;
         V_current = V_in.row(i);
+
         for (int j = 0; j < V_adjacent[i].size(); j++){
             if (j == 0){
                 V_1 = V_in.row(V_adjacent[i][V_adjacent[i].size()-1]);
@@ -56,8 +54,8 @@ Eigen::SparseMatrix<double> MS::CotangentMatrix(Eigen::MatrixXd V_in, Eigen::Mat
             }
             else if (j + 1 == V_adjacent[i].size()){
                 V_1 = V_in.row(V_adjacent[i][j-1]);
-                V_1 = V_in.row(V_adjacent[i][j]);
-                V_2 = V_in.row(V_adjacent[i][0]);
+                V_2 = V_in.row(V_adjacent[i][j]);
+                V_3 = V_in.row(V_adjacent[i][0]);
             }else{
                 V_1 = V_in.row(V_adjacent[i][j-1]);
                 V_2 = V_in.row(V_adjacent[i][j]);
@@ -66,24 +64,22 @@ Eigen::SparseMatrix<double> MS::CotangentMatrix(Eigen::MatrixXd V_in, Eigen::Mat
 
             double cosine_alpha = (V_current - V_1).dot(V_2 - V_1)/((V_current - V_1).norm()*(V_2 - V_1).norm());
             double cosine_beta = (V_current - V_3).dot(V_2 - V_3)/((V_current - V_3).norm()*(V_2 - V_3).norm());
-            double sum = 1.0/std::tan(std::acos(cosine_alpha)) + 1.0/std::tan(std::acos(cosine_beta));
+            double sum = 0.5 * (1.0/std::tan(std::acos(cosine_alpha)) + 1.0/std::tan(std::acos(cosine_beta)));
 
-            sum_cotangent += sum;
+            if (V_in.row(i) != V_in.row(V_adjacent[i][j])){
+                contangent_matrix.insert(i, V_adjacent[i][j]) = sum;
+                sum_cotangent += sum;
+            }
+
         }
-        cotangent_sum_each_vertex[i] = sum_cotangent;
+        contangent_matrix.insert(i,i) = -1.0 * sum_cotangent;
     }
 
-    // Convert the column to diagonal
-    Eigen::MatrixXd cotangent_dense(cotangent_sum_each_vertex.asDiagonal());
-
-    // Convert the dense matrix to sparse
-    contangent_sparse = cotangent_dense.sparseView();
-
-    return contangent_sparse;
+    return contangent_matrix;
 
 }
 
-Eigen::SparseMatrix<double> MS::BarycentricArea(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in){
+Eigen::SparseMatrix<double> MS::BarycentricMassMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in){
     Eigen::SparseMatrix<double> area_sparse;
 
     Eigen::VectorXd area_each_vertex(V_in.rows());
@@ -102,7 +98,7 @@ Eigen::SparseMatrix<double> MS::BarycentricArea(Eigen::MatrixXd V_in, Eigen::Mat
         for (int j = 0; j < faces.size(); j++){
             total_area += area_value_list.row(faces[j])[0];
         }
-        area_each_vertex[i] = total_area/3;
+        area_each_vertex[i] = 0.5 * (total_area/3);
     }
 
     // Convert the column to diagonal
@@ -129,7 +125,7 @@ Eigen::VectorXd MS::UniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixXi F
 Eigen::VectorXd MS::UniformGaussianCurvature(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in){
 
     Eigen::VectorXd k_each_vertex(V_in.rows());
-    Eigen::SparseMatrix<double> area = BarycentricArea(V_in, F_in);
+    Eigen::SparseMatrix<double> area = BarycentricMassMatrix(V_in, F_in);
 
     std::vector<std::vector<int>> V_adjacent;
     igl::adjacency_list(F_in, V_adjacent, true);
@@ -163,21 +159,31 @@ Eigen::VectorXd MS::NonUniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixX
     Eigen::VectorXd H(V_in.rows());
     H.setZero();
 
-    Eigen::SparseMatrix<double> area,cotangent;
+    Eigen::SparseMatrix<double> area, cotangent;
+    cotangent = CotangentMatrix(V_in, F_in);
+    area = BarycentricMassMatrix(V_in, F_in);
 
-    //cotangent = CotangentMatrix(V_in, F_in);
-
-    igl::cotmatrix(V_in, F_in, cotangent);
-
-    std::cout << cotangent.row(0) << std::endl;
-    std::cout << cotangent.row(1) << std::endl;
-    std::cout << cotangent.row(2) << std::endl;
-    std::cout << cotangent.row(3) << std::endl;
-    std::cout << cotangent.row(4) << std::endl;
-    std::cout << cotangent.row(5) << std::endl;
-
-    //laplacian =  LaplacianMatrix(V_in, F_in);
-    area = BarycentricArea(V_in, F_in);
+    // For testing purpose
+//    Eigen::SparseMatrix<double> area_built_in, cotangent_built_in;
+//    igl::massmatrix(V_in, F_in, igl::MASSMATRIX_TYPE_BARYCENTRIC, area_built_in);
+//    igl::cotmatrix(V_in, F_in, cotangent_built_in);
+//    std::cout << "Result(M): Custom vs Built-in Function" << std::endl;
+//    std::cout << area.row(0) << std::endl;
+//    std::cout << area_built_in.row(0) << std::endl;
+//    std::cout << "Result(C): Custom vs Built-in Function" << std::endl;
+//    Eigen::VectorXd cot_row1 = cotangent.row(0);
+//    Eigen::VectorXd cot_row2 = cotangent_built_in.row(0);
+//    for (int i =0; i < cot_row1.size(); i ++){
+//        if (cot_row1[i]!=0){
+//            std::cout << cot_row1[i] << std::endl;
+//        }
+//    }
+//    std::cout << "-----------------------------------------" << std::endl;
+//    for (int i =0; i < cot_row2.size(); i ++){
+//        if (cot_row2[i]!=0){
+//            std::cout << cot_row2[i] << std::endl;
+//        }
+//    }
 
     Eigen::SparseMatrix<double> area_inverse(V_in.rows(), V_in.rows());
 
