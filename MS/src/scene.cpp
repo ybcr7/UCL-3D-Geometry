@@ -36,7 +36,7 @@ void Scene::Discretisation(int mode){
             break;
     }
 
-    C_out = 100 * C_out.array() / (C_out.maxCoeff() - C_out.minCoeff());
+    C_out = 1000 * C_out.array() / (C_out.maxCoeff() - C_out.minCoeff());
     igl::parula(C_out, false, C);
 
     Visualise();

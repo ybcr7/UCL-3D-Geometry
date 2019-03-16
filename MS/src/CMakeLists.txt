@@ -18,8 +18,8 @@ ${PROJECT_SOURCE_DIR}/ms.cpp
 ${PROJECT_SOURCE_DIR}/scene.cpp
 ${PROJECT_SOURCE_DIR}/ms.h
 ${PROJECT_SOURCE_DIR}/scene.h
-${PROJECT_SOURCE_DIR}/nanoflann.hpp
-        cds.h)
-                          
+${PROJECT_SOURCE_DIR}/nanoflann.hpp)
+
 add_executable(${PROJECT_NAME} ${SRC_FILES})
 target_link_libraries(${PROJECT_NAME} igl::core igl::opengl_glfw igl::opengl_glfw_imgui)
+include_directories(${PROJECT_SOURCE_DIR}/Spectra)
