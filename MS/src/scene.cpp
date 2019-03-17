@@ -5,16 +5,8 @@
 
 #define FILE_PATH "data/"
 
-struct Scene::RenderingData{
-    Eigen::MatrixXd V;
-    Eigen::MatrixXi F;
-    Eigen::MatrixXd C;
-};
-
 Scene::Scene(igl::opengl::glfw::Viewer& refViewer):viewer(refViewer){
-    iteration = 100;
-    lambda = 0;
-    noise = 0;
+
 }
 
 Scene::~Scene(){}
@@ -36,25 +28,42 @@ void Scene::Discretisation(int mode){
             break;
     }
 
-    C_out = 1000 * C_out.array() / (C_out.maxCoeff() - C_out.minCoeff());
+    C_out = 100 * C_out.array() / (C_out.maxCoeff() - C_out.minCoeff());
     igl::parula(C_out, false, C);
 
-    Visualise();
+    Visualise(V,F);
 }
 
 void Scene::Reconstruction() {
-    V = MS::Reconstruction(V,F,5);
+    Eigen::MatrixXd V_out(V.rows(),V.cols());
+    V_out = MS::Reconstruction(V,F,eigenvector);
+    Visualise(V_out, F);
 }
 
 
 void Scene::Smoothing(int mode) {
-    std::pair<Eigen::MatrixXd, Eigen::MatrixXi> mesh_out;
+    Eigen::MatrixXd V_out = V;
+    Eigen::VectorXd C_out;
     switch (mode){
         case 0:
-            //mesh_out = MS::ExplicitSmoothing(V,F);
+            for (int i = 0; i < iteration; i ++){
+                V_out = MS::ExplicitSmoothing(V_out,F,lambda);
+                std::cout << "Complete iteration:" << i << std::endl;
+            }
+            C_out = MS::UniformMeanCurvature(V_out,F);
+            C_out = 5 * C_out.array() / (C_out.maxCoeff() - C_out.minCoeff());
+            igl::parula(C_out, false, C);
+            Visualise(V_out,F);
             break;
         case 1:
-            //mesh_out = MS::ImplicitSmoothing(V,F);
+            for (int i = 0; i < iteration; i ++){
+                V_out = MS::ImplicitSmoothing(V_out,F,lambda);
+                std::cout << "Complete iteration:" << i << std::endl;
+            }
+            C_out = MS::UniformMeanCurvature(V_out,F);
+            C_out = 5 * C_out.array() / (C_out.maxCoeff() - C_out.minCoeff());
+            igl::parula(C_out, false, C);
+            Visualise(V_out,F);
             break;
         default:
             std::cout << "ERROR: Undefined Smoothing Mode" << std::endl;
@@ -65,25 +74,20 @@ void Scene::Smoothing(int mode) {
 void Scene::Initialise(std::string filename){
 
     igl::readOFF(FILE_PATH + filename, V, F);
-
-    Visualise();
+    //C = Eigen::Vector3d(1,0,1.0,0.0);
+    Visualise(V,F);
 }
 
 void Scene::AddNoise(){
-
-    rendering_data.clear();
-
-    V = MS::AddNoise(V, noise);
-
-    Visualise();
-
+    Eigen::MatrixXd V_out = MS::AddNoise(V, noise);
+    Visualise(V_out, F);
 }
 
 void Scene::SetNumEigenvector(int e) {
     if (e < 1) {
-        iteration = 1;
+        eigenvector = 1;
     } else {
-        iteration = e;
+        eigenvector = e;
     }
 }
 
@@ -111,11 +115,20 @@ void Scene::SetNoise(double n) {
     }
 }
 
-void Scene::Visualise(){
+//void Scene::Visualise(){
+//    viewer.data().clear();
+//    viewer.data().show_lines = 0;
+//    viewer.data().show_overlay_depth = 1;
+//    viewer.data().set_mesh(V, F);
+//    viewer.data().set_colors(C);
+//    viewer.core.align_camera_center(V, F);
+//}
+
+void Scene::Visualise(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in){
     viewer.data().clear();
     viewer.data().show_lines = 0;
     viewer.data().show_overlay_depth = 1;
-    viewer.data().set_mesh(V, F);
+    viewer.data().set_mesh(V_in, F_in);
     viewer.data().set_colors(C);
-    viewer.core.align_camera_center(V, F);
+    viewer.core.align_camera_center(V_in, F_in);
 }

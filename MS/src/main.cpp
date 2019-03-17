@@ -19,13 +19,19 @@ int main(int argc, char *argv[]){
     
     Scene scene(viewer);
 
-	// Menu variable Shared between two menus
-    int iteration = 100;
-    double lambda = 0.0;
-    double noise = 0.0;
-    int eigenvector = 1;
+	// Menu variable shared between two menus
+    int eigenvector = 5;
+    int iteration = 20;
+    double lambda = 0.5;
+    double noise = 0.5;
     static const char *models[]{"cube.off","bunny.off","camel.off","camelhead.off","cow.off","dragon.off"};
-    static int model_index = 3;
+    static int model_index = 1;
+
+    scene.SetNumEigenvector(eigenvector);
+    scene.SetIteration(iteration);
+    scene.SetLambda(lambda);
+    scene.SetNoise(noise);
+
 
     // Draw an optional panel for adjusting global variables
     menu.callback_draw_viewer_menu = [&]()

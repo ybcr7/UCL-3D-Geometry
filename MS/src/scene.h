@@ -15,7 +15,7 @@ public:
 
     // Utility
     void Initialise(std::string filename);
-    void Visualise();
+    void Visualise(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
     void SetNumEigenvector(int e);
     void SetIteration(int i);
     void SetLambda(double l);
@@ -33,7 +33,4 @@ private:
     double lambda;
     double noise;
     int eigenvector;
-
-    struct RenderingData;
-    std::vector<RenderingData> rendering_data;
 };

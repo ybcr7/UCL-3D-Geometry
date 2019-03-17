@@ -21,7 +21,6 @@
 #include "Spectra/GenEigsComplexShiftSolver.h"
 #include "Spectra/SymGEigsSolver.h"
 #include "Spectra/MatOp/SparseGenMatProd.h"
-
 #include "ms.h"
 
 Eigen::SparseMatrix<double> MS::LaplacianMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in) {
@@ -126,6 +125,49 @@ Eigen::SparseMatrix<double> MS::BarycentricMassMatrix(Eigen::MatrixXd V_in, Eige
     return mass_matrix;
 }
 
+Eigen::SparseMatrix<double> MS::LaplacianBeltramiMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in){
+
+    //
+    Eigen::SparseMatrix<double> mass, cotangent;
+    cotangent = CotangentMatrix(V_in, F_in);
+    mass = BarycentricMassMatrix(V_in, F_in);
+
+    // For testing purpose: To show that we can obtain the exactly same result obtained from our implementations versus built-in functions
+//    Eigen::SparseMatrix<double> mass_built_in, cotangent_built_in;
+//    igl::massmatrix(V_in, F_in, igl::MASSMATRIX_TYPE_BARYCENTRIC, mass_built_in);
+//    igl::cotmatrix(V_in, F_in, cotangent_built_in);
+//    std::cout << "Result(M): Custom vs Built-in Function" << std::endl;
+//    std::cout << mass.row(0) << std::endl;
+//    std::cout << "-----------------------------------------" << std::endl;
+//    std::cout << mass_built_in.row(0) << std::endl;
+//    std::cout << "Result(C): Custom vs Built-in Function" << std::endl;
+//    Eigen::VectorXd cot_row1 = cotangent.row(0);
+//    Eigen::VectorXd cot_row2 = cotangent_built_in.row(0);
+//    for (int i =0; i < cot_row1.size(); i ++){
+//        if (cot_row1[i]!=0){
+//            std::cout << cot_row1[i] << std::endl;
+//        }
+//    }
+//    std::cout << "-----------------------------------------" << std::endl;
+//    for (int i =0; i < cot_row2.size(); i ++){
+//        if (cot_row2[i]!=0){
+//            std::cout << cot_row2[i] << std::endl;
+//        }
+//    }
+
+    Eigen::SparseMatrix<double> mass_inverse(V_in.rows(), V_in.rows());
+    for (int i = 0; i < V_in.rows(); i++)
+    {
+        mass_inverse.insert(i, i) = 1 / mass.coeff(i, i);
+    }
+
+    Eigen::SparseMatrix<double> L_sparse(V_in.rows(), V_in.rows());
+    L_sparse = mass_inverse * cotangent;
+
+    return L_sparse;
+}
+
+
 Eigen::VectorXd MS::UniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in){
 
     Eigen::VectorXd H(V_in.rows());
@@ -180,44 +222,10 @@ Eigen::VectorXd MS::NonUniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixX
     Eigen::VectorXd H(V_in.rows());
     H.setZero();
 
-    Eigen::SparseMatrix<double> mass, cotangent;
-    cotangent = CotangentMatrix(V_in, F_in);
-    mass = BarycentricMassMatrix(V_in, F_in);
+    Eigen::SparseMatrix<double> LB_sparse = LaplacianBeltramiMatrix(V_in, F_in);
 
-    // For testing purpose: To show that we can obtain the exactly same result obtained from our implementations versus built-in functions
-//    Eigen::SparseMatrix<double> mass_built_in, cotangent_built_in;
-//    igl::massmatrix(V_in, F_in, igl::MASSMATRIX_TYPE_BARYCENTRIC, mass_built_in);
-//    igl::cotmatrix(V_in, F_in, cotangent_built_in);
-//    std::cout << "Result(M): Custom vs Built-in Function" << std::endl;
-//    std::cout << mass.row(0) << std::endl;
-//    std::cout << "-----------------------------------------" << std::endl;
-//    std::cout << mass_built_in.row(0) << std::endl;
-//    std::cout << "Result(C): Custom vs Built-in Function" << std::endl;
-//    Eigen::VectorXd cot_row1 = cotangent.row(0);
-//    Eigen::VectorXd cot_row2 = cotangent_built_in.row(0);
-//    for (int i =0; i < cot_row1.size(); i ++){
-//        if (cot_row1[i]!=0){
-//            std::cout << cot_row1[i] << std::endl;
-//        }
-//    }
-//    std::cout << "-----------------------------------------" << std::endl;
-//    for (int i =0; i < cot_row2.size(); i ++){
-//        if (cot_row2[i]!=0){
-//            std::cout << cot_row2[i] << std::endl;
-//        }
-//    }
-
-    Eigen::SparseMatrix<double> mass_inverse(V_in.rows(), V_in.rows());
-    for (int i = 0; i < V_in.rows(); i++)
-    {
-        mass_inverse.insert(i, i) = 1 / mass.coeff(i, i);
-    }
-
-    Eigen::SparseMatrix<double> L_sparse(V_in.rows(), V_in.rows());
-    L_sparse = mass_inverse * cotangent;
-
-    Eigen::MatrixXd L = L_sparse.toDense();
-    Eigen::MatrixXd cotangent_vertex = L * V_in;
+    Eigen::MatrixXd LB = LB_sparse.toDense();
+    Eigen::MatrixXd cotangent_vertex = LB * V_in;
 
     H = 0.5 * (cotangent_vertex).rowwise().norm();
 
@@ -226,25 +234,23 @@ Eigen::VectorXd MS::NonUniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixX
 
 Eigen::MatrixXd MS::Reconstruction(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, int k){
 
-
     Eigen::SparseMatrix<double> mass, cotangent;
     cotangent = CotangentMatrix(V_in, F_in);
-//    mass = BarycentricMassMatrix(V_in, F_in);
-//
-//    Eigen::SparseMatrix<double> mass_inverse(V_in.rows(), V_in.rows());
-//    for (int i = 0; i < V_in.rows(); i++)
-//    {
-//        mass_inverse.insert(i, i) = 1 / mass.coeff(i, i);
-//    }
-//    Eigen::SparseMatrix<double> L_sparse(V_in.rows(), V_in.rows());
-//    L_sparse = mass_inverse * cotangent;
+    mass = BarycentricMassMatrix(V_in, F_in);
 
+    Eigen::SparseMatrix<double> mass_inverse(V_in.rows(), V_in.rows());
+    for (int i = 0; i < V_in.rows(); i++)
+    {
+        mass_inverse.insert(i, i) = 1 / mass.coeff(i, i);
+    }
+    Eigen::SparseMatrix<double> L_sparse(V_in.rows(), V_in.rows());
+    L_sparse = mass_inverse * cotangent;
 
     // Construct matrix operation object using the wrapper class SparseGenMatProd
     Spectra::SparseGenMatProd<double> operation(cotangent);
 
     // Construct eigen solver object, requesting the largest three eigenvalues
-    Spectra::GenEigsSolver< double, Spectra::SMALLEST_MAGN, Spectra::SparseGenMatProd<double> > eigen_solver(&operation, k, V_in.rows());
+    Spectra::GenEigsSolver< double, Spectra::SMALLEST_MAGN, Spectra::SparseGenMatProd<double> > eigen_solver(&operation, k, 2*k+1);
 
     // Initialize and compute
     eigen_solver.init();
@@ -256,38 +262,64 @@ Eigen::MatrixXd MS::Reconstruction(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, i
     if(eigen_solver.info() == Spectra::SUCCESSFUL){
         eigenvalues = eigen_solver.eigenvalues();
         eigenvectors = eigen_solver.eigenvectors();
+        //std::cout << "Eigenvectors found:\n" << eigenvectors << std::endl;
+    }else{
+        std::cout << "ERROR: No smallest eigenvectors found" << std::endl;
     }
 
-    std::cout << "Smallest eigenvalues:" << std::endl;
-    std::cout << eigenvalues << std::endl;
-    std::cout << "Smallest eigenvector:" << std::endl;
-    std::cout << eigenvectors << std::endl;
+    //std::cout << "-----------------------------" << std::endl;
 
-//    Eigen::MatrixXd real_eigenvecs = complex2real(eigenvectors);
-//
-//    // ----- reconstruction
-//    Eigen::MatrixXd V_recon(V_in.rows(),V_in.cols());
-//    V_recon.setZero();
-//
-//    Eigen::MatrixXd scaler(1,3);
-//    for(int i=0; i<real_eigenvecs.cols(); i++){
-//        scaler(0,0) = (V_in.col(0).transpose()) * real_eigenvecs.col(i);
-//        scaler(0,1) = (V_in.col(1).transpose()) * real_eigenvecs.col(i);
-//        scaler(0,2) = (V_in.col(2).transpose()) * real_eigenvecs.col(i);
-//
-//        V_recon.col(0) = V_recon.col(0) + scaler(0,0) * real_eigenvecs.col(i);
-//        V_recon.col(1) = V_recon.col(1) + scaler(0,1) * real_eigenvecs.col(i);
-//        V_recon.col(2) = V_recon.col(2) + scaler(0,2) * real_eigenvecs.col(i);
-//    }
+    Eigen::MatrixXd real_eigenvecs(eigenvectors.rows(), eigenvectors.cols());
+    real_eigenvecs = eigenvectors.real();
 
+    //std::cout << "Eigenvectors found:\n" << real_eigenvecs << std::endl;
 
-    std::cout<<"eigen version.:"<<EIGEN_WORLD_VERSION<<","<<EIGEN_MAJOR_VERSION << EIGEN_MINOR_VERSION<<"\n";
+    Eigen::MatrixXd V_recon(V_in.rows(),3);
+    V_recon.setZero();
 
-    return V_in;
+    for(int i=0; i<real_eigenvecs.cols(); i++){
+        V_recon.col(0) += (V_in.col(0).transpose() * real_eigenvecs.col(i))* real_eigenvecs.col(i);
+        V_recon.col(1) += (V_in.col(1).transpose() * real_eigenvecs.col(i))* real_eigenvecs.col(i);
+        V_recon.col(2) += (V_in.col(2).transpose() * real_eigenvecs.col(i))* real_eigenvecs.col(i);
+    }
+
+    return V_recon;
     
 }
 
-Eigen::MatrixXd MS::AddNoise(Eigen::MatrixXd V_in, double noise){
+
+Eigen::MatrixXd MS::ExplicitSmoothing(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, double lambda){
+
+    Eigen::SparseMatrix<double> L = MS::LaplacianMatrix(V_in, F_in);
+    Eigen::SparseMatrix<double> I(V_in.rows(),V_in.rows());
+    I.setIdentity();
+
+    Eigen::MatrixXd V_out(V_in.rows(),V_in.rows());
+
+    V_out = (I+lambda*L)*V_in;
+
+    return V_out;
+}
+
+Eigen::MatrixXd MS::ImplicitSmoothing(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, double lambda){
+
+    Eigen::SparseMatrix<double> L = LaplacianBeltramiMatrix(V_in, F_in);
+    Eigen::SparseMatrix<double> M = BarycentricMassMatrix(V_in, F_in);
+
+    // compute A
+    Eigen::SimplicialCholesky<Eigen::SparseMatrix<double>> chol(M-lambda*M*L);
+
+    // compute b
+    Eigen::VectorXd x = chol.solve(M*V_in.col(0));
+    Eigen::VectorXd y = chol.solve(M*V_in.col(1));
+    Eigen::VectorXd z = chol.solve(M*V_in.col(2));
+    Eigen::MatrixXd V_out(V_in.rows(),3);
+    V_out<<x, y, z;
+
+    return V_out;
+}
+
+Eigen::MatrixXd MS::AddNoise(Eigen::MatrixXd V_in, double sd){
     
     // Initialise output matrix
     Eigen::MatrixXd V_out;
@@ -304,18 +336,17 @@ Eigen::MatrixXd MS::AddNoise(Eigen::MatrixXd V_in, double noise){
 
     // Random number generation
     std::default_random_engine rnd;
-    std::normal_distribution<double> gaussian(0.0, noise);
+    std::normal_distribution<double> gaussian(0.0, sd);
     
     // Add noise to the vertex
     for (int i=0; i<V_out.rows(); i++){
         double x =gaussian(rnd)/(10000*noise_scale_x);
         double y =gaussian(rnd)/(10000*noise_scale_y);
         double z =gaussian(rnd)/(10000*noise_scale_z);
-        Eigen::RowVector3d noise(x,y,z);
-        V_out.row(i) = V_in.row(i) + noise;
+        Eigen::RowVector3d gaussian_noise(x,y,z);
+        V_out.row(i) = V_in.row(i) + gaussian_noise;
     }
     
     return V_out;
     
 }
-

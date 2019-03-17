@@ -5,6 +5,7 @@ namespace MS{
     Eigen::SparseMatrix<double> LaplacianMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
     Eigen::SparseMatrix<double> CotangentMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
     Eigen::SparseMatrix<double> BarycentricMassMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
+    Eigen::SparseMatrix<double> LaplacianBeltramiMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
 
     Eigen::VectorXd UniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
     Eigen::VectorXd UniformGaussianCurvature(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
@@ -12,8 +13,8 @@ namespace MS{
 
     Eigen::MatrixXd Reconstruction(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, int k);
 
-    std::pair<Eigen::MatrixXd, Eigen::MatrixXi> ExplicitSmoothing(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
-    std::pair<Eigen::MatrixXd, Eigen::MatrixXi> ImplicitSmoothing(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
+    Eigen::MatrixXd ExplicitSmoothing(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, double lambda);
+    Eigen::MatrixXd ImplicitSmoothing(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, double lambda);
 
     Eigen::MatrixXd AddNoise(Eigen::MatrixXd V_in, double noise);
 }

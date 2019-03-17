@@ -17,8 +17,7 @@ set(SRC_FILES ${PROJECT_SOURCE_DIR}/main.cpp
 ${PROJECT_SOURCE_DIR}/ms.cpp
 ${PROJECT_SOURCE_DIR}/scene.cpp
 ${PROJECT_SOURCE_DIR}/ms.h
-${PROJECT_SOURCE_DIR}/scene.h
-${PROJECT_SOURCE_DIR}/nanoflann.hpp)
+${PROJECT_SOURCE_DIR}/scene.h)
 
 add_executable(${PROJECT_NAME} ${SRC_FILES})
 target_link_libraries(${PROJECT_NAME} igl::core igl::opengl_glfw igl::opengl_glfw_imgui)
