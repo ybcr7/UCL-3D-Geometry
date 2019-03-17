@@ -1,6 +1,9 @@
+#include <Eigen/Core>
+#include <Eigen/SparseCore>
 #include <Eigen/Dense>
-#include <Eigen/SVD>
 #include <Eigen/Sparse>
+#include <Eigen/SVD>
+#include <Eigen/SparseCholesky>
 #include <random>
 #include <iostream>
 #include <math.h>
@@ -17,6 +20,8 @@
 #include "Spectra/GenEigsRealShiftSolver.h"
 #include "Spectra/GenEigsComplexShiftSolver.h"
 #include "Spectra/SymGEigsSolver.h"
+#include "Spectra/MatOp/SparseGenMatProd.h"
+
 #include "ms.h"
 
 Eigen::SparseMatrix<double> MS::LaplacianMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in) {
@@ -217,6 +222,69 @@ Eigen::VectorXd MS::NonUniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixX
     H = 0.5 * (cotangent_vertex).rowwise().norm();
 
     return H;
+}
+
+Eigen::MatrixXd MS::Reconstruction(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, int k){
+
+
+    Eigen::SparseMatrix<double> mass, cotangent;
+    cotangent = CotangentMatrix(V_in, F_in);
+//    mass = BarycentricMassMatrix(V_in, F_in);
+//
+//    Eigen::SparseMatrix<double> mass_inverse(V_in.rows(), V_in.rows());
+//    for (int i = 0; i < V_in.rows(); i++)
+//    {
+//        mass_inverse.insert(i, i) = 1 / mass.coeff(i, i);
+//    }
+//    Eigen::SparseMatrix<double> L_sparse(V_in.rows(), V_in.rows());
+//    L_sparse = mass_inverse * cotangent;
+
+
+    // Construct matrix operation object using the wrapper class SparseGenMatProd
+    Spectra::SparseGenMatProd<double> operation(cotangent);
+
+    // Construct eigen solver object, requesting the largest three eigenvalues
+    Spectra::GenEigsSolver< double, Spectra::SMALLEST_MAGN, Spectra::SparseGenMatProd<double> > eigen_solver(&operation, k, V_in.rows());
+
+    // Initialize and compute
+    eigen_solver.init();
+    int nconv = eigen_solver.compute();
+    // Retrieve results
+    Eigen::VectorXcd eigenvalues;
+    Eigen::MatrixXcd eigenvectors;
+
+    if(eigen_solver.info() == Spectra::SUCCESSFUL){
+        eigenvalues = eigen_solver.eigenvalues();
+        eigenvectors = eigen_solver.eigenvectors();
+    }
+
+    std::cout << "Smallest eigenvalues:" << std::endl;
+    std::cout << eigenvalues << std::endl;
+    std::cout << "Smallest eigenvector:" << std::endl;
+    std::cout << eigenvectors << std::endl;
+
+//    Eigen::MatrixXd real_eigenvecs = complex2real(eigenvectors);
+//
+//    // ----- reconstruction
+//    Eigen::MatrixXd V_recon(V_in.rows(),V_in.cols());
+//    V_recon.setZero();
+//
+//    Eigen::MatrixXd scaler(1,3);
+//    for(int i=0; i<real_eigenvecs.cols(); i++){
+//        scaler(0,0) = (V_in.col(0).transpose()) * real_eigenvecs.col(i);
+//        scaler(0,1) = (V_in.col(1).transpose()) * real_eigenvecs.col(i);
+//        scaler(0,2) = (V_in.col(2).transpose()) * real_eigenvecs.col(i);
+//
+//        V_recon.col(0) = V_recon.col(0) + scaler(0,0) * real_eigenvecs.col(i);
+//        V_recon.col(1) = V_recon.col(1) + scaler(0,1) * real_eigenvecs.col(i);
+//        V_recon.col(2) = V_recon.col(2) + scaler(0,2) * real_eigenvecs.col(i);
+//    }
+
+
+    std::cout<<"eigen version.:"<<EIGEN_WORLD_VERSION<<","<<EIGEN_MAJOR_VERSION << EIGEN_MINOR_VERSION<<"\n";
+
+    return V_in;
+    
 }
 
 Eigen::MatrixXd MS::AddNoise(Eigen::MatrixXd V_in, double noise){

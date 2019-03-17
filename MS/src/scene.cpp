@@ -43,6 +43,7 @@ void Scene::Discretisation(int mode){
 }
 
 void Scene::Reconstruction() {
+    V = MS::Reconstruction(V,F,5);
 }
 
 
