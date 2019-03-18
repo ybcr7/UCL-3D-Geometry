@@ -79,8 +79,8 @@ void Scene::Initialise(std::string filename){
 }
 
 void Scene::AddNoise(){
-    Eigen::MatrixXd V_out = MS::AddNoise(V, noise);
-    Visualise(V_out, F);
+    V = MS::AddNoise(V, noise);
+    Visualise(V, F);
 }
 
 void Scene::SetNumEigenvector(int e) {
@@ -114,15 +114,6 @@ void Scene::SetNoise(double n) {
         noise = n;
     }
 }
-
-//void Scene::Visualise(){
-//    viewer.data().clear();
-//    viewer.data().show_lines = 0;
-//    viewer.data().show_overlay_depth = 1;
-//    viewer.data().set_mesh(V, F);
-//    viewer.data().set_colors(C);
-//    viewer.core.align_camera_center(V, F);
-//}
 
 void Scene::Visualise(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in){
     viewer.data().clear();

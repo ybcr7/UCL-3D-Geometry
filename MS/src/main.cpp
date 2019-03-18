@@ -24,7 +24,7 @@ int main(int argc, char *argv[]){
     int iteration = 20;
     double lambda = 0.5;
     double noise = 0.5;
-    static const char *models[]{"cube.off","bunny.off","camel.off","camelhead.off","cow.off","dragon.off"};
+    static const char *models[]{"camelhead.off","bunny.off","cow.off"};
     static int model_index = 1;
 
     scene.SetNumEigenvector(eigenvector);
@@ -92,7 +92,7 @@ int main(int argc, char *argv[]){
                 scene.SetIteration(iteration);
             }
 
-            if(ImGui::InputDouble("Lambda", &lambda, 0, 0, "%.4f")){
+            if(ImGui::InputDouble("Lambda", &lambda, 0, 0, "%.8f")){
                 scene.SetLambda(lambda);
             }
 
@@ -104,11 +104,12 @@ int main(int argc, char *argv[]){
                 scene.Smoothing(1);
             }
 
-            if(ImGui::InputDouble("Noise", &noise, 0, 0, "%.4f")){
+            if(ImGui::InputDouble("Noise", &noise, 0, 0, "%.8f")){
                 scene.SetNoise(noise);
             }
 
             if (ImGui::Button("Add Noise", ImVec2(-1, 0))) {
+                scene.Initialise(models[model_index]);
                 scene.AddNoise();
             }
         }
