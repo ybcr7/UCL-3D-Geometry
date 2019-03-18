@@ -1,10 +1,9 @@
 #define _USE_MATH_DEFINES
 #include <cmath>
 #include <Eigen/Core>
-#include <Eigen/SparseCore>
 #include <Eigen/Dense>
+#include <Eigen/SparseCore>
 #include <Eigen/Sparse>
-#include <Eigen/SVD>
 #include <Eigen/SparseCholesky>
 #include <random>
 #include <iostream>
@@ -18,12 +17,7 @@
 #include <igl/massmatrix.h>
 #include <igl/cotmatrix_entries.h>
 #include <igl/is_edge_manifold.h>
-#include "Spectra/SymEigsSolver.h"
 #include "Spectra/GenEigsSolver.h"
-#include "Spectra/SymEigsShiftSolver.h"
-#include "Spectra/GenEigsRealShiftSolver.h"
-#include "Spectra/GenEigsComplexShiftSolver.h"
-#include "Spectra/SymGEigsSolver.h"
 #include "Spectra/MatOp/SparseGenMatProd.h"
 #include "ms.h"
 

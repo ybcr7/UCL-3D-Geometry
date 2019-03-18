@@ -3,7 +3,7 @@
 #include "scene.h"
 #include "ms.h"
 
-#define FILE_PATH "../data/"
+#define FILE_PATH "data/"
 
 Scene::Scene(igl::opengl::glfw::Viewer& refViewer):viewer(refViewer){
     default_C << 1.0,1.0,0.0;
@@ -16,12 +16,15 @@ void Scene::Discretisation(int mode){
     switch (mode){
         case 0:
             C_out = MS::UniformMeanCurvature(V,F);
+
             break;
         case 1:
             C_out = MS::UniformGaussianCurvature(V,F);
+
             break;
         case 2:
             C_out = MS::NonUniformMeanCurvature(V,F);
+
             break;
         default:
             std::cout << "ERROR: Undefined Discretisation Mode" << std::endl;
