@@ -32,7 +32,6 @@ int main(int argc, char *argv[]){
     scene.SetLambda(lambda);
     scene.SetNoise(noise);
 
-
     // Draw an optional panel for adjusting global variables
     menu.callback_draw_viewer_menu = [&]()
     {
@@ -92,7 +91,7 @@ int main(int argc, char *argv[]){
                 scene.SetIteration(iteration);
             }
 
-            if(ImGui::InputDouble("Lambda", &lambda, 0, 0, "%.8f")){
+            if(ImGui::InputDouble("Lambda", &lambda, 0, 0, "%.10f")){
                 scene.SetLambda(lambda);
             }
 
@@ -104,7 +103,7 @@ int main(int argc, char *argv[]){
                 scene.Smoothing(1);
             }
 
-            if(ImGui::InputDouble("Noise", &noise, 0, 0, "%.8f")){
+            if(ImGui::InputDouble("Noise", &noise, 0, 0, "%.10f")){
                 scene.SetNoise(noise);
             }
 
@@ -122,5 +121,4 @@ int main(int argc, char *argv[]){
 
 	// Call GUI
 	viewer.launch();
-
 }

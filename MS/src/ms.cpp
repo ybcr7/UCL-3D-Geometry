@@ -1,3 +1,5 @@
+#define _USE_MATH_DEFINES
+#include <cmath>
 #include <Eigen/Core>
 #include <Eigen/SparseCore>
 #include <Eigen/Dense>
@@ -53,8 +55,9 @@ Eigen::SparseMatrix<double> MS::CotangentMatrix(Eigen::MatrixXd V_in, Eigen::Mat
     Eigen::SparseMatrix<double> contangent_matrix(V_in.rows(), V_in.rows());
 
     if (igl::is_edge_manifold(F_in)){
-        // Vertex-Based
-
+		// Manifold
+		std::cout << "Manifold Mesh - Using MS::CotangentMatrix()" << std::endl;
+        
         // Find connected vertex for each vertex (ordered)
         std::vector<std::vector<int>> V_adjacent;
         igl::adjacency_list(F_in, V_adjacent, true);
@@ -100,11 +103,9 @@ Eigen::SparseMatrix<double> MS::CotangentMatrix(Eigen::MatrixXd V_in, Eigen::Mat
         return contangent_matrix;
 
     }else{
-        // Face-Based
-
-        contangent_matrix.setIdentity();
-
-        std::cout << "Non-Manifold Mesh" << std::endl;
+        // Non-Manifold
+		std::cout << "Non-Manifold Mesh - Using igl::cotmatrix()" << std::endl;
+		igl::cotmatrix(V_in, F_in, contangent_matrix);
         return contangent_matrix;
     };
 
@@ -142,7 +143,6 @@ Eigen::SparseMatrix<double> MS::BarycentricMassMatrix(Eigen::MatrixXd V_in, Eige
 
 Eigen::SparseMatrix<double> MS::LaplacianBeltramiMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in){
 
-    //
     Eigen::SparseMatrix<double> mass, cotangent;
     cotangent = CotangentMatrix(V_in, F_in);
     mass = BarycentricMassMatrix(V_in, F_in);
@@ -170,11 +170,7 @@ Eigen::SparseMatrix<double> MS::LaplacianBeltramiMatrix(Eigen::MatrixXd V_in, Ei
 //        }
 //    }
 
-    Eigen::SparseMatrix<double> mass_inverse(V_in.rows(), V_in.rows());
-    for (int i = 0; i < V_in.rows(); i++)
-    {
-        mass_inverse.insert(i, i) = 1 / mass.coeff(i, i);
-    }
+	Eigen::SparseMatrix<double> mass_inverse = mass.cwiseInverse();
 
     Eigen::SparseMatrix<double> L_sparse(V_in.rows(), V_in.rows());
     L_sparse = mass_inverse * cotangent;
@@ -191,6 +187,7 @@ Eigen::VectorXd MS::UniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixXi F
     Eigen::MatrixXd laplacian_dense = LaplacianMatrix(V_in,F_in).toDense();
     Eigen::MatrixXd laplacian_vertex = laplacian_dense * V_in;
 
+	// Compute mean curvature
     H = 0.5 * (laplacian_vertex).rowwise().norm();
 
     return H;
@@ -242,6 +239,7 @@ Eigen::VectorXd MS::NonUniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixX
     Eigen::MatrixXd LB = LB_sparse.toDense();
     Eigen::MatrixXd cotangent_vertex = LB * V_in;
 
+	// Compute mean curvature
     H = 0.5 * (cotangent_vertex).rowwise().norm();
 
     return H;
@@ -249,17 +247,12 @@ Eigen::VectorXd MS::NonUniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixX
 
 Eigen::MatrixXd MS::Reconstruction(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, int k){
 
-    Eigen::SparseMatrix<double> mass, cotangent;
-    cotangent = CotangentMatrix(V_in, F_in);
-    mass = BarycentricMassMatrix(V_in, F_in);
+	Eigen::SparseMatrix<double> cotangent = CotangentMatrix(V_in, F_in);
+    Eigen::SparseMatrix<double> mass = BarycentricMassMatrix(V_in, F_in);
+	Eigen::SparseMatrix<double> mass_inverse = mass.cwiseInverse();
+	Eigen::SparseMatrix<double> mass_inverse_half = mass.cwiseSqrt().cwiseInverse();
 
-    Eigen::SparseMatrix<double> mass_inverse(V_in.rows(), V_in.rows());
-    for (int i = 0; i < V_in.rows(); i++)
-    {
-        mass_inverse.insert(i, i) = 1 / mass.coeff(i, i);
-    }
-    Eigen::SparseMatrix<double> L_sparse(V_in.rows(), V_in.rows());
-    L_sparse = mass_inverse * cotangent;
+	Eigen::SparseMatrix<double> decomp_matrix = mass_inverse_half * cotangent * mass_inverse_half;
 
     // Construct matrix operation object using the wrapper class SparseGenMatProd
     Spectra::SparseGenMatProd<double> operation(cotangent);
@@ -271,35 +264,36 @@ Eigen::MatrixXd MS::Reconstruction(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, i
     eigen_solver.init();
     int nconv = eigen_solver.compute();
     // Retrieve results
-    Eigen::VectorXcd eigenvalues;
-    Eigen::MatrixXcd eigenvectors;
+    Eigen::VectorXcd eigenvalues_complex;
+    Eigen::MatrixXcd eigenvectors_complex;
 
     if(eigen_solver.info() == Spectra::SUCCESSFUL){
-        eigenvalues = eigen_solver.eigenvalues();
-        eigenvectors = eigen_solver.eigenvectors();
-        //std::cout << "Eigenvectors found:\n" << eigenvectors << std::endl;
+        eigenvalues_complex = eigen_solver.eigenvalues();
+        eigenvectors_complex = eigen_solver.eigenvectors();
     }else{
         std::cout << "ERROR: No smallest eigenvectors found" << std::endl;
+		return V_in;
     }
 
-    //std::cout << "-----------------------------" << std::endl;
+	// Convert complex values to real values
+    Eigen::MatrixXd eigenvectors(eigenvectors_complex.rows(), eigenvectors_complex.cols());
 
-    Eigen::MatrixXd real_eigenvecs(eigenvectors.rows(), eigenvectors.cols());
-    real_eigenvecs = eigenvectors.real();
-
-    //std::cout << "Eigenvectors found:\n" << real_eigenvecs << std::endl;
+	eigenvectors = eigenvectors_complex.real();
+	//eigenvectors = mass_inverse_half * eigenvectors_complex.real();
 
     Eigen::MatrixXd V_recon(V_in.rows(),3);
     V_recon.setZero();
 
-    for(int i=0; i<real_eigenvecs.cols(); i++){
-        V_recon.col(0) += (V_in.col(0).transpose() * real_eigenvecs.col(i))* real_eigenvecs.col(i);
-        V_recon.col(1) += (V_in.col(1).transpose() * real_eigenvecs.col(i))* real_eigenvecs.col(i);
-        V_recon.col(2) += (V_in.col(2).transpose() * real_eigenvecs.col(i))* real_eigenvecs.col(i);
+    for(int i=0; i<eigenvectors.cols(); i++){
+        V_recon += eigenvectors.col(i)*(V_in.transpose() * eigenvectors.col(i)).transpose();
+
+		// Equivalent to:
+		//V_recon.col(0) += (V_in.col(0).transpose() * eigenvectors.col(i))* eigenvectors.col(i);
+		//V_recon.col(1) += (V_in.col(1).transpose() * eigenvectors.col(i))* eigenvectors.col(i);
+		//V_recon.col(2) += (V_in.col(2).transpose() * eigenvectors.col(i))* eigenvectors.col(i);
     }
 
     return V_recon;
-    
 }
 
 Eigen::MatrixXd MS::ExplicitSmoothing(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, double lambda, int iteration){

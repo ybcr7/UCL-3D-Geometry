@@ -3,7 +3,7 @@
 #include "scene.h"
 #include "ms.h"
 
-#define FILE_PATH "data/"
+#define FILE_PATH "../data/"
 
 Scene::Scene(igl::opengl::glfw::Viewer& refViewer):viewer(refViewer){
     default_C << 1.0,1.0,0.0;
