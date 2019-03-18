@@ -28,6 +28,7 @@ private:
     Eigen::MatrixXd V;
     Eigen::MatrixXi F;
     Eigen::MatrixXd C;
+    Eigen::RowVector3d default_C;
     
     int iteration;
     double lambda;

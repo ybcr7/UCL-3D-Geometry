@@ -14,6 +14,8 @@
 #include <igl/doublearea.h>
 #include <igl/cotmatrix.h>
 #include <igl/massmatrix.h>
+#include <igl/cotmatrix_entries.h>
+#include <igl/is_edge_manifold.h>
 #include "Spectra/SymEigsSolver.h"
 #include "Spectra/GenEigsSolver.h"
 #include "Spectra/SymEigsShiftSolver.h"
@@ -50,49 +52,62 @@ Eigen::SparseMatrix<double> MS::CotangentMatrix(Eigen::MatrixXd V_in, Eigen::Mat
 
     Eigen::SparseMatrix<double> contangent_matrix(V_in.rows(), V_in.rows());
 
-    // Find connected vertex for each vertex (ordered)
-    std::vector<std::vector<int>> V_adjacent;
-    igl::adjacency_list(F_in, V_adjacent, true);
+    if (igl::is_edge_manifold(F_in)){
+        // Vertex-Based
 
-    // Compute the cotangent of alpha and beta and construct the Laplacian matrix
-    Eigen::Vector3d V_current, V_1, V_2, V_3;
-    for (int i = 0; i < V_adjacent.size(); i++){
+        // Find connected vertex for each vertex (ordered)
+        std::vector<std::vector<int>> V_adjacent;
+        igl::adjacency_list(F_in, V_adjacent, true);
 
-        double sum_cotangent = 0;
-        V_current = V_in.row(i);
+        // Compute the cotangent of alpha and beta and construct the Laplacian matrix
+        Eigen::Vector3d V_current, V_1, V_2, V_3;
+        for (int i = 0; i < V_adjacent.size(); i++){
 
-        // Find three continuous vertex in order to compute the degrees
-        for (int j = 0; j < V_adjacent[i].size(); j++){
-            if (j == 0){
-                V_1 = V_in.row(V_adjacent[i][V_adjacent[i].size()-1]);
-                V_2 = V_in.row(V_adjacent[i][j]);
-                V_3 = V_in.row(V_adjacent[i][j+1]);
+            double sum_cotangent = 0;
+            V_current = V_in.row(i);
+
+            // Find three continuous vertex in order to compute the degrees
+            for (int j = 0; j < V_adjacent[i].size(); j++){
+                if (j == 0){
+                    V_1 = V_in.row(V_adjacent[i][V_adjacent[i].size()-1]);
+                    V_2 = V_in.row(V_adjacent[i][j]);
+                    V_3 = V_in.row(V_adjacent[i][j+1]);
+                }
+                else if (j + 1 == V_adjacent[i].size()){
+                    V_1 = V_in.row(V_adjacent[i][j-1]);
+                    V_2 = V_in.row(V_adjacent[i][j]);
+                    V_3 = V_in.row(V_adjacent[i][0]);
+                }else{
+                    V_1 = V_in.row(V_adjacent[i][j-1]);
+                    V_2 = V_in.row(V_adjacent[i][j]);
+                    V_3 = V_in.row(V_adjacent[i][j+1]);
+                }
+
+                double cosine_alpha = (V_current - V_1).dot(V_2 - V_1)/((V_current - V_1).norm()*(V_2 - V_1).norm());
+                double cosine_beta = (V_current - V_3).dot(V_2 - V_3)/((V_current - V_3).norm()*(V_2 - V_3).norm());
+                double sum = 0.5 * (1.0/std::tan(std::acos(cosine_alpha)) + 1.0/std::tan(std::acos(cosine_beta)));
+
+                // If I != J
+                if (V_in.row(i) != V_in.row(V_adjacent[i][j])){
+                    contangent_matrix.insert(i, V_adjacent[i][j]) = sum;
+                    sum_cotangent += sum;
+                }
+
             }
-            else if (j + 1 == V_adjacent[i].size()){
-                V_1 = V_in.row(V_adjacent[i][j-1]);
-                V_2 = V_in.row(V_adjacent[i][j]);
-                V_3 = V_in.row(V_adjacent[i][0]);
-            }else{
-                V_1 = V_in.row(V_adjacent[i][j-1]);
-                V_2 = V_in.row(V_adjacent[i][j]);
-                V_3 = V_in.row(V_adjacent[i][j+1]);
-            }
-
-            double cosine_alpha = (V_current - V_1).dot(V_2 - V_1)/((V_current - V_1).norm()*(V_2 - V_1).norm());
-            double cosine_beta = (V_current - V_3).dot(V_2 - V_3)/((V_current - V_3).norm()*(V_2 - V_3).norm());
-            double sum = 0.5 * (1.0/std::tan(std::acos(cosine_alpha)) + 1.0/std::tan(std::acos(cosine_beta)));
-
-            // If I != J
-            if (V_in.row(i) != V_in.row(V_adjacent[i][j])){
-                contangent_matrix.insert(i, V_adjacent[i][j]) = sum;
-                sum_cotangent += sum;
-            }
-
+            // Diagonal direction (I = J)
+            contangent_matrix.insert(i,i) = -1.0 * sum_cotangent;
         }
-        // Diagonal direction (I = J)
-        contangent_matrix.insert(i,i) = -1.0 * sum_cotangent;
-    }
-    return contangent_matrix;
+        return contangent_matrix;
+
+    }else{
+        // Face-Based
+
+        contangent_matrix.setIdentity();
+
+        std::cout << "Non-Manifold Mesh" << std::endl;
+        return contangent_matrix;
+    };
+
 }
 
 Eigen::SparseMatrix<double> MS::BarycentricMassMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in){
@@ -287,33 +302,39 @@ Eigen::MatrixXd MS::Reconstruction(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, i
     
 }
 
-Eigen::MatrixXd MS::ExplicitSmoothing(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, double lambda){
+Eigen::MatrixXd MS::ExplicitSmoothing(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, double lambda, int iteration){
 
-    Eigen::SparseMatrix<double> L = MS::LaplacianMatrix(V_in, F_in);
+    //Eigen::SparseMatrix<double> L = MS::LaplacianMatrix(V_in, F_in);
+    Eigen::SparseMatrix<double> L = MS::LaplacianBeltramiMatrix(V_in, F_in);
     Eigen::SparseMatrix<double> I(V_in.rows(),V_in.rows());
     I.setIdentity();
+    Eigen::MatrixXd V_out = V_in;
 
-    Eigen::MatrixXd V_out(V_in.rows(),V_in.rows());
-
-    V_out = (I+lambda*L)*V_in;
+    for (int i =0; i < iteration; i++){
+        V_out = (I+lambda*L)*V_out;
+    }
 
     return V_out;
 }
 
-Eigen::MatrixXd MS::ImplicitSmoothing(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, double lambda){
+Eigen::MatrixXd MS::ImplicitSmoothing(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, double lambda, int iteration){
 
+    Eigen::MatrixXd V_out = V_in;
+
+    // Compute A
     Eigen::SparseMatrix<double> L = LaplacianBeltramiMatrix(V_in, F_in);
     Eigen::SparseMatrix<double> M = BarycentricMassMatrix(V_in, F_in);
-
-    // compute A
     Eigen::SimplicialCholesky<Eigen::SparseMatrix<double>> chol(M-lambda*M*L);
 
-    // compute b
-    Eigen::VectorXd x = chol.solve(M*V_in.col(0));
-    Eigen::VectorXd y = chol.solve(M*V_in.col(1));
-    Eigen::VectorXd z = chol.solve(M*V_in.col(2));
-    Eigen::MatrixXd V_out(V_in.rows(),3);
-    V_out<<x, y, z;
+    // Compute b
+    for (int i =0; i< iteration; i++){
+        Eigen::VectorXd x_x = chol.solve(M*V_out.col(0));
+        Eigen::VectorXd x_y = chol.solve(M*V_out.col(1));
+        Eigen::VectorXd x_z = chol.solve(M*V_out.col(2));
+        V_out.resize(V_out.rows(),3);
+        V_out.setZero();
+        V_out<<x_x, x_y, x_z;
+    }
 
     return V_out;
 }
@@ -349,3 +370,20 @@ Eigen::MatrixXd MS::AddNoise(Eigen::MatrixXd V_in, double sd){
     return V_out;
     
 }
+
+
+void MS::test(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in){
+
+    Eigen::Matrix<double,Eigen::Dynamic,Eigen::Dynamic> C_out;
+
+//    igl::cotmatrix_entries(V_in,F_in,C_out);
+
+//    std::cout << F_in.rows() << std::endl;
+//
+//    std::cout << C_out.rows() << std::endl;
+//
+//    std::cout << C_out.row(1) << std::endl;
+    //std::cout << C_out << std::endl;
+
+}
+

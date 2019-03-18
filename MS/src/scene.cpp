@@ -6,7 +6,7 @@
 #define FILE_PATH "data/"
 
 Scene::Scene(igl::opengl::glfw::Viewer& refViewer):viewer(refViewer){
-
+    default_C << 1.0,1.0,0.0;
 }
 
 Scene::~Scene(){}
@@ -46,20 +46,14 @@ void Scene::Smoothing(int mode) {
     Eigen::VectorXd C_out;
     switch (mode){
         case 0:
-            for (int i = 0; i < iteration; i ++){
-                V_out = MS::ExplicitSmoothing(V_out,F,lambda);
-                std::cout << "Complete iteration:" << i << std::endl;
-            }
+            V_out = MS::ExplicitSmoothing(V_out,F,lambda,iteration);
             C_out = MS::UniformMeanCurvature(V_out,F);
             C_out = 5 * C_out.array() / (C_out.maxCoeff() - C_out.minCoeff());
             igl::parula(C_out, false, C);
             Visualise(V_out,F);
             break;
         case 1:
-            for (int i = 0; i < iteration; i ++){
-                V_out = MS::ImplicitSmoothing(V_out,F,lambda);
-                std::cout << "Complete iteration:" << i << std::endl;
-            }
+            V_out = MS::ImplicitSmoothing(V_out,F,lambda,iteration);
             C_out = MS::UniformMeanCurvature(V_out,F);
             C_out = 5 * C_out.array() / (C_out.maxCoeff() - C_out.minCoeff());
             igl::parula(C_out, false, C);
@@ -72,9 +66,13 @@ void Scene::Smoothing(int mode) {
 }
 
 void Scene::Initialise(std::string filename){
-
     igl::readOFF(FILE_PATH + filename, V, F);
+    C.resize(V.rows(),V.cols());
+    for (int i = 0; i < V.rows(); i++){
+        C.row(i) = default_C;
+    }
     Visualise(V,F);
+    MS::test(V,F);
 }
 
 void Scene::AddNoise(){

@@ -22,7 +22,7 @@ int main(int argc, char *argv[]){
 	// Menu variable shared between two menus
     int eigenvector = 5;
     int iteration = 20;
-    double lambda = 0.5;
+    double lambda = 0.00000015;
     double noise = 0.5;
     static const char *models[]{"camelhead.off","bunny.off","cow.off"};
     static int model_index = 1;
