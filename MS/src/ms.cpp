@@ -287,7 +287,6 @@ Eigen::MatrixXd MS::Reconstruction(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, i
     
 }
 
-
 Eigen::MatrixXd MS::ExplicitSmoothing(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, double lambda){
 
     Eigen::SparseMatrix<double> L = MS::LaplacianMatrix(V_in, F_in);
