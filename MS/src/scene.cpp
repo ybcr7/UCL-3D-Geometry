@@ -1,9 +1,8 @@
 #include <igl/readOFF.h>
 #include <igl/opengl/glfw/Viewer.h>
+#include <igl/file_exists.h>
 #include "scene.h"
 #include "ms.h"
-
-#define FILE_PATH "data/"
 
 Scene::Scene(igl::opengl::glfw::Viewer& refViewer):viewer(refViewer){
     default_C << 1.0,1.0,0.0;
@@ -69,7 +68,29 @@ void Scene::Smoothing(int mode) {
 }
 
 void Scene::Initialise(std::string filename){
-    igl::readOFF(FILE_PATH + filename, V, F);
+
+    std::vector<const char *> FILE_PATH_LIST{
+            "../data/",
+            "../../data/",
+            "../../../data/"};
+    bool file_found = false;
+
+    for (const auto & FILE_PATH : FILE_PATH_LIST)
+    {
+        if ( igl::file_exists(FILE_PATH + filename) )
+        {
+            if (igl::readOFF(FILE_PATH+filename, V, F)) {
+                file_found = true;
+                break;
+            }
+        }
+    }
+
+    if (!file_found) {
+        std::cout << "ERROR: "<< filename << " not found" << std::endl;
+        exit(1);
+    }
+
     C.resize(V.rows(),V.cols());
     for (int i = 0; i < V.rows(); i++){
         C.row(i) = default_C;
@@ -117,7 +138,6 @@ void Scene::SetNoise(double n) {
 
 void Scene::Visualise(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in){
     viewer.data().clear();
-//    viewer.data().show_lines = 0;
     viewer.data().show_overlay_depth = 1;
     viewer.data().set_mesh(V_in, F_in);
     viewer.data().set_colors(C);
