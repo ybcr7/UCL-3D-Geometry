@@ -24,7 +24,7 @@ int main(int argc, char *argv[]){
     int iteration = 20;
     double lambda = 0.00000015;
     double noise = 0.5;
-    static const char *models[]{"camelhead.off","bunny.off","cow.off"};
+    static const char *models[]{"camelhead.off","bunny.off","cow_manifold.off"};
     static int model_index = 1;
 
     scene.SetNumEigenvector(eigenvector);

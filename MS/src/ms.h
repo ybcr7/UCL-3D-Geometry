@@ -17,7 +17,5 @@ namespace MS{
     Eigen::MatrixXd ImplicitSmoothing(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, double lambda, int iteration);
 
     Eigen::MatrixXd AddNoise(Eigen::MatrixXd V_in, double noise);
-
-    void test(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
 }
 

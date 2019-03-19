@@ -8,7 +8,6 @@
 #include <random>
 #include <iostream>
 #include <math.h>
-#include <time.h>
 #include <igl/bounding_box.h>
 #include <igl/vertex_triangle_adjacency.h>
 #include <igl/adjacency_list.h>
@@ -17,11 +16,7 @@
 #include <igl/massmatrix.h>
 #include <igl/cotmatrix_entries.h>
 #include <igl/is_edge_manifold.h>
-#include <igl/is_symmetric.h>
-#include <igl/eigs.h>
-#include "Spectra/GenEigsSolver.h"
 #include "Spectra/SymEigsSolver.h"
-#include "Spectra/MatOp/SparseGenMatProd.h"
 #include "Spectra/MatOp/SparseSymMatProd.h"
 #include "ms.h"
 
@@ -54,11 +49,11 @@ Eigen::SparseMatrix<double> MS::CotangentMatrix(Eigen::MatrixXd V_in, Eigen::Mat
 
     if (igl::is_edge_manifold(F_in)){
 		// Manifold
-		std::cout << "Manifold Mesh - Using MS::CotangentMatrix()" << std::endl;
+		//std::cout << "Manifold Mesh - Using MS::CotangentMatrix()" << std::endl;
         
         // Find connected vertex for each vertex (ordered)
         std::vector<std::vector<int>> V_adjacent;
-        igl::adjacency_list(F_in, V_adjacent, true);
+        igl::adjacency_list(F_in, V_adjacent);
 
 		// Find connected faces for each vertex
 		std::vector<std::vector<int> > VF;
@@ -75,56 +70,79 @@ Eigen::SparseMatrix<double> MS::CotangentMatrix(Eigen::MatrixXd V_in, Eigen::Mat
 			// Find a list of faces that only connect to the current vertex
 			std::vector<int> Fi_connected = VF[i];
 
-            // Find three continuous vertex in order to compute the degrees
             for (int j = 0; j < V_adjacent[i].size(); j++){
 
 				std::vector<int> Vi_adjacent_pair;
 
-				// Find two connected faces with and target vertex
+				// Find two vertex that are opposite to the current edge using face information
 				for (int f = 0; f < Fi_connected.size(); f++) {
-					Eigen::Vector3i ff = F_in.row(Fi_connected[f]);
-					if (ff.x() == V_adjacent[i][j] || ff.y() == V_adjacent[i][j] || ff.z() == V_adjacent[i][j]) {
-						//std::cout << "Found" << std::endl;
-						std::vector<int> V_found;
-						V_found.push_back(ff.x());
-						V_found.push_back(ff.y());
-						V_found.push_back(ff.z());
-						V_found.erase(std::remove(V_found.begin(), V_found.end(), i), V_found.end());
-						V_found.erase(std::remove(V_found.begin(), V_found.end(), V_adjacent[i][j]), V_found.end());
-						Vi_adjacent_pair.push_back(V_found[0]);
+					Eigen::Vector3i F_current = F_in.row(Fi_connected[f]);
+
+					// If any face contains this edge (i <-> j)
+					if (F_current.x() == V_adjacent[i][j] || F_current.y() == V_adjacent[i][j] || F_current.z() == V_adjacent[i][j]) {
+
+						// Construct a vertex index list for the found face
+						std::vector<int> Vi_found;
+						Vi_found.push_back(F_current.x());
+						Vi_found.push_back(F_current.y());
+						Vi_found.push_back(F_current.z());
+
+						// Remove the edge vertex i, j and the last vertex is the one we need
+						Vi_found.erase(std::remove(Vi_found.begin(), Vi_found.end(), i), Vi_found.end());
+						Vi_found.erase(std::remove(Vi_found.begin(), Vi_found.end(), V_adjacent[i][j]), Vi_found.end());
+						Vi_adjacent_pair.push_back(Vi_found[0]);
 					}
 				}
 
-				if (Vi_adjacent_pair.size() != 2) {
+				// Because the mesh is manifold, it should return two vertex
+				// However, if the mesh is not naturally manifold e.g. converted from a non-manfold mesh, some information might be broken:
+				// This IF-STATMENT is introduced because it cannot handle the converted manifold cow (but works perfectly with bunny) in order to eliminate the error
+				// In addition, the vertex_face_adjacency() itself also contains a bug that may produce the same surface twice
+				// Without this IF-STATEMENT, the computation will produce exactly 6 errors for 6 vertex which form 2 faces that were removed from the non-manifold mesh using MeshLab
+				if (Vi_adjacent_pair.size() >= 2) {
+				
+					// Get two vertex and compute cotangent
+					V_1 = V_in.row(Vi_adjacent_pair[0]);
+					V_3 = V_in.row(Vi_adjacent_pair[1]);
+					V_2 = V_in.row(V_adjacent[i][j]);
 
-					std::cout << "ERROR" << std::endl;
+					// Compute using the formula
+					double cosine_alpha = (V_current - V_1).dot(V_2 - V_1) / ((V_current - V_1).norm()*(V_2 - V_1).norm());
+					double cosine_beta = (V_current - V_3).dot(V_2 - V_3) / ((V_current - V_3).norm()*(V_2 - V_3).norm());
+					double sum = 0.5 * (1.0 / std::tan(std::acos(cosine_alpha)) + 1.0 / std::tan(std::acos(cosine_beta)));
+
+					// If I != J
+					if (V_in.row(i) != V_in.row(V_adjacent[i][j])) {
+						contangent_matrix.insert(i, V_adjacent[i][j]) = sum;
+						sum_cotangent += sum;
+					}
+				
 				}
+				else {
+					// If the mesh is broken for some reasons
+					// As mentioned before, the manifold mesh should always return the vertex as pair
+					// If an error is detected, we treat this value as invalid
+					double sum = 0;
 
-				V_1 = V_in.row(Vi_adjacent_pair[0]);
-				V_2 = V_in.row(V_adjacent[i][j]);
-				V_3 = V_in.row(Vi_adjacent_pair[1]);
-
-                double cosine_alpha = (V_current - V_1).dot(V_2 - V_1)/((V_current - V_1).norm()*(V_2 - V_1).norm());
-                double cosine_beta = (V_current - V_3).dot(V_2 - V_3)/((V_current - V_3).norm()*(V_2 - V_3).norm());
-                double sum = 0.5 * (1.0/std::tan(std::acos(cosine_alpha)) + 1.0/std::tan(std::acos(cosine_beta)));
-
-                // If I != J
-                if (V_in.row(i) != V_in.row(V_adjacent[i][j])){
-                    contangent_matrix.insert(i, V_adjacent[i][j]) = sum;
-                    sum_cotangent += sum;
-                }
-
+					// If I != J
+					if (V_in.row(i) != V_in.row(V_adjacent[i][j])) {
+						contangent_matrix.insert(i, V_adjacent[i][j]) = sum;
+						sum_cotangent += sum;
+					}
+				}
             }
+
             // Diagonal direction (I = J)
-            contangent_matrix.insert(i,i) = -1.0 * sum_cotangent;
+			contangent_matrix.insert(i, i) = -1.0 * sum_cotangent;
+            
         }
-		std::cout << "What" << std::endl;
 
         return contangent_matrix;
 
     }else{
         // Non-Manifold
-		std::cout << "Non-Manifold Mesh - Using igl::cotmatrix()" << std::endl;
+		// This function will not be triggered unless using non-manifold mesh
+		std::cout << "WARNING: Non-Manifold Mesh Detected - Using igl::cotmatrix() Instead" << std::endl;
 		igl::cotmatrix(V_in, F_in, contangent_matrix);
         return contangent_matrix;
     };
@@ -146,9 +164,6 @@ Eigen::SparseMatrix<double> MS::BarycentricMassMatrix(Eigen::MatrixXd V_in, Eige
     std::vector<std::vector<int> > VF;
     std::vector<std::vector<int> > VFi;
     igl::vertex_triangle_adjacency(V_in.rows(), F_in, VF, VFi);
-
-	std::cout << VF.size() << std::endl;
-	std::cout << VFi.size() << std::endl;
 
     // Compute area of each connected face and sum them up
     for (int i = 0; i < VF.size(); i++){
@@ -201,7 +216,6 @@ Eigen::SparseMatrix<double> MS::LaplacianBeltramiMatrix(Eigen::MatrixXd V_in, Ei
     return L_sparse;
 }
 
-
 Eigen::VectorXd MS::UniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in){
 
     Eigen::VectorXd H(V_in.rows());
@@ -221,32 +235,33 @@ Eigen::VectorXd MS::UniformGaussianCurvature(Eigen::MatrixXd V_in, Eigen::Matrix
     Eigen::VectorXd K(V_in.rows());
     Eigen::SparseMatrix<double> area = BarycentricMassMatrix(V_in, F_in);
 
-
 	// Find connected faces for each vertex
 	std::vector<std::vector<int> > VF;
 	std::vector<std::vector<int> > VFi;
 	igl::vertex_triangle_adjacency(V_in.rows(), F_in, VF, VFi);
 
-    // Find connected vertex for each vertex (ordered)
-    std::vector<std::vector<int>> V_adjacent;
-    igl::adjacency_list(F_in, V_adjacent, true);
-
     // Compute the Gaussian curvature based on the degree and area
     Eigen::Vector3d V_current, V_1, V_2;
-    for (int i = 0; i < V_adjacent.size(); i++){
+    for (int i = 0; i < VF.size(); i++){
         double sum_theta = 0;
         V_current = V_in.row(i);
-        for (int j = 0; j < V_adjacent[i].size(); j++){
 
-            // Find two continuous vertex in order to compute the degree between two vectors
-            if (j + 1 == V_adjacent[i].size()){
-                V_1 = V_in.row(V_adjacent[i][j]);
-                V_2 = V_in.row(V_adjacent[i][0]);
-            }else{
-                V_1 = V_in.row(V_adjacent[i][j]);
-                V_2 = V_in.row(V_adjacent[i][j+1]);
-            }
+		// Connected vertex can be found using face information
+        for (int j = 0; j < VF[i].size(); j++){
 
+			// Construct a vertex index list for the current face
+			Eigen::Vector3i F_current = F_in.row(VF[i][j]);
+			std::vector<int> Vi_found;
+			Vi_found.push_back(F_current.x());
+			Vi_found.push_back(F_current.y());
+			Vi_found.push_back(F_current.z());
+
+			// Remove the current vertex from the current face so that we have two connected vertex
+			Vi_found.erase(std::remove(Vi_found.begin(), Vi_found.end(), i), Vi_found.end());
+			V_1 = V_in.row(Vi_found[0]);
+			V_2 = V_in.row(Vi_found[1]);
+
+			// Compute using the formula
             double theta = std::acos((V_1 - V_current).dot(V_2 - V_current)/((V_1 - V_current).norm() * (V_2 - V_current).norm()));
             sum_theta += theta;
         }
@@ -276,13 +291,9 @@ Eigen::VectorXd MS::NonUniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixX
 
 Eigen::MatrixXd MS::Reconstruction(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, int k){
 
-	//Eigen::SparseMatrix<double> cotangent = CotangentMatrix(V_in, F_in);
-
-	Eigen::SparseMatrix<double> cotangent;
+	Eigen::SparseMatrix<double> cotangent;// = CotangentMatrix(V_in, F_in);
 	igl::cotmatrix(V_in, F_in, cotangent);
 
-	//Eigen::SparseMatrix<double> mass2;
-	//igl::massmatrix(V_in, F_in, igl::MASSMATRIX_TYPE_BARYCENTRIC, mass2);
 	Eigen::SparseMatrix<double> mass = BarycentricMassMatrix(V_in, F_in);
 	
 	Eigen::SparseMatrix<double> mass_inverse = mass.cwiseInverse();
@@ -324,9 +335,9 @@ Eigen::MatrixXd MS::Reconstruction(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, i
         V_recon += eigenvectors.col(i)*(V_in.transpose() * mass * eigenvectors.col(i)).transpose();
 
 		// Equivalent to:
-		//V_recon.col(0) += (V_in.col(0).transpose() * eigenvectors.col(i))* eigenvectors.col(i);
-		//V_recon.col(1) += (V_in.col(1).transpose() * eigenvectors.col(i))* eigenvectors.col(i);
-		//V_recon.col(2) += (V_in.col(2).transpose() * eigenvectors.col(i))* eigenvectors.col(i);
+		//V_recon.col(0) += (V_in.col(0).transpose() * mass * eigenvectors.col(i))* eigenvectors.col(i);
+		//V_recon.col(1) += (V_in.col(1).transpose() * mass * eigenvectors.col(i))* eigenvectors.col(i);
+		//V_recon.col(2) += (V_in.col(2).transpose() * mass * eigenvectors.col(i))* eigenvectors.col(i);
     }
 	
     return V_recon;
@@ -397,21 +408,6 @@ Eigen::MatrixXd MS::AddNoise(Eigen::MatrixXd V_in, double sd){
     
     return V_out;
     
-}
-
-void MS::test(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in){
-
-    Eigen::Matrix<double,Eigen::Dynamic,Eigen::Dynamic> C_out;
-
-//    igl::cotmatrix_entries(V_in,F_in,C_out);
-
-//    std::cout << F_in.rows() << std::endl;
-//
-//    std::cout << C_out.rows() << std::endl;
-//
-//    std::cout << C_out.row(1) << std::endl;
-    //std::cout << C_out << std::endl;
-
 }
 
 

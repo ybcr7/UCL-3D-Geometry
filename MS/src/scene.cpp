@@ -96,7 +96,6 @@ void Scene::Initialise(std::string filename){
         C.row(i) = default_C;
     }
     Visualise(V,F);
-    MS::test(V,F);
 }
 
 void Scene::AddNoise(){
