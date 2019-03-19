@@ -17,8 +17,12 @@
 #include <igl/massmatrix.h>
 #include <igl/cotmatrix_entries.h>
 #include <igl/is_edge_manifold.h>
+#include <igl/is_symmetric.h>
+#include <igl/eigs.h>
 #include "Spectra/GenEigsSolver.h"
+#include "Spectra/SymEigsSolver.h"
 #include "Spectra/MatOp/SparseGenMatProd.h"
+#include "Spectra/MatOp/SparseSymMatProd.h"
 #include "ms.h"
 
 Eigen::SparseMatrix<double> MS::LaplacianMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in) {
@@ -56,6 +60,11 @@ Eigen::SparseMatrix<double> MS::CotangentMatrix(Eigen::MatrixXd V_in, Eigen::Mat
         std::vector<std::vector<int>> V_adjacent;
         igl::adjacency_list(F_in, V_adjacent, true);
 
+		// Find connected faces for each vertex
+		std::vector<std::vector<int> > VF;
+		std::vector<std::vector<int> > VFi;
+		igl::vertex_triangle_adjacency(V_in.rows(), F_in, VF, VFi);
+
         // Compute the cotangent of alpha and beta and construct the Laplacian matrix
         Eigen::Vector3d V_current, V_1, V_2, V_3;
         for (int i = 0; i < V_adjacent.size(); i++){
@@ -63,22 +72,37 @@ Eigen::SparseMatrix<double> MS::CotangentMatrix(Eigen::MatrixXd V_in, Eigen::Mat
             double sum_cotangent = 0;
             V_current = V_in.row(i);
 
+			// Find a list of faces that only connect to the current vertex
+			std::vector<int> Fi_connected = VF[i];
+
             // Find three continuous vertex in order to compute the degrees
             for (int j = 0; j < V_adjacent[i].size(); j++){
-                if (j == 0){
-                    V_1 = V_in.row(V_adjacent[i][V_adjacent[i].size()-1]);
-                    V_2 = V_in.row(V_adjacent[i][j]);
-                    V_3 = V_in.row(V_adjacent[i][j+1]);
-                }
-                else if (j + 1 == V_adjacent[i].size()){
-                    V_1 = V_in.row(V_adjacent[i][j-1]);
-                    V_2 = V_in.row(V_adjacent[i][j]);
-                    V_3 = V_in.row(V_adjacent[i][0]);
-                }else{
-                    V_1 = V_in.row(V_adjacent[i][j-1]);
-                    V_2 = V_in.row(V_adjacent[i][j]);
-                    V_3 = V_in.row(V_adjacent[i][j+1]);
-                }
+
+				std::vector<int> Vi_adjacent_pair;
+
+				// Find two connected faces with and target vertex
+				for (int f = 0; f < Fi_connected.size(); f++) {
+					Eigen::Vector3i ff = F_in.row(Fi_connected[f]);
+					if (ff.x() == V_adjacent[i][j] || ff.y() == V_adjacent[i][j] || ff.z() == V_adjacent[i][j]) {
+						//std::cout << "Found" << std::endl;
+						std::vector<int> V_found;
+						V_found.push_back(ff.x());
+						V_found.push_back(ff.y());
+						V_found.push_back(ff.z());
+						V_found.erase(std::remove(V_found.begin(), V_found.end(), i), V_found.end());
+						V_found.erase(std::remove(V_found.begin(), V_found.end(), V_adjacent[i][j]), V_found.end());
+						Vi_adjacent_pair.push_back(V_found[0]);
+					}
+				}
+
+				if (Vi_adjacent_pair.size() != 2) {
+
+					std::cout << "ERROR" << std::endl;
+				}
+
+				V_1 = V_in.row(Vi_adjacent_pair[0]);
+				V_2 = V_in.row(V_adjacent[i][j]);
+				V_3 = V_in.row(Vi_adjacent_pair[1]);
 
                 double cosine_alpha = (V_current - V_1).dot(V_2 - V_1)/((V_current - V_1).norm()*(V_2 - V_1).norm());
                 double cosine_beta = (V_current - V_3).dot(V_2 - V_3)/((V_current - V_3).norm()*(V_2 - V_3).norm());
@@ -94,6 +118,8 @@ Eigen::SparseMatrix<double> MS::CotangentMatrix(Eigen::MatrixXd V_in, Eigen::Mat
             // Diagonal direction (I = J)
             contangent_matrix.insert(i,i) = -1.0 * sum_cotangent;
         }
+		std::cout << "What" << std::endl;
+
         return contangent_matrix;
 
     }else{
@@ -120,6 +146,9 @@ Eigen::SparseMatrix<double> MS::BarycentricMassMatrix(Eigen::MatrixXd V_in, Eige
     std::vector<std::vector<int> > VF;
     std::vector<std::vector<int> > VFi;
     igl::vertex_triangle_adjacency(V_in.rows(), F_in, VF, VFi);
+
+	std::cout << VF.size() << std::endl;
+	std::cout << VFi.size() << std::endl;
 
     // Compute area of each connected face and sum them up
     for (int i = 0; i < VF.size(); i++){
@@ -192,6 +221,12 @@ Eigen::VectorXd MS::UniformGaussianCurvature(Eigen::MatrixXd V_in, Eigen::Matrix
     Eigen::VectorXd K(V_in.rows());
     Eigen::SparseMatrix<double> area = BarycentricMassMatrix(V_in, F_in);
 
+
+	// Find connected faces for each vertex
+	std::vector<std::vector<int> > VF;
+	std::vector<std::vector<int> > VFi;
+	igl::vertex_triangle_adjacency(V_in.rows(), F_in, VF, VFi);
+
     // Find connected vertex for each vertex (ordered)
     std::vector<std::vector<int>> V_adjacent;
     igl::adjacency_list(F_in, V_adjacent, true);
@@ -241,18 +276,25 @@ Eigen::VectorXd MS::NonUniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixX
 
 Eigen::MatrixXd MS::Reconstruction(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, int k){
 
-	Eigen::SparseMatrix<double> cotangent = CotangentMatrix(V_in, F_in);
-    Eigen::SparseMatrix<double> mass = BarycentricMassMatrix(V_in, F_in);
+	//Eigen::SparseMatrix<double> cotangent = CotangentMatrix(V_in, F_in);
+
+	Eigen::SparseMatrix<double> cotangent;
+	igl::cotmatrix(V_in, F_in, cotangent);
+
+	//Eigen::SparseMatrix<double> mass2;
+	//igl::massmatrix(V_in, F_in, igl::MASSMATRIX_TYPE_BARYCENTRIC, mass2);
+	Eigen::SparseMatrix<double> mass = BarycentricMassMatrix(V_in, F_in);
+	
 	Eigen::SparseMatrix<double> mass_inverse = mass.cwiseInverse();
 	Eigen::SparseMatrix<double> mass_inverse_half = mass.cwiseSqrt().cwiseInverse();
 
-	Eigen::SparseMatrix<double> decomp_matrix = mass_inverse_half * cotangent * mass_inverse_half;
+	Eigen::SparseMatrix<double> decomp_matrix = mass_inverse_half  * -1.0 * cotangent * mass_inverse_half;
 
     // Construct matrix operation object using the wrapper class SparseGenMatProd
-    Spectra::SparseGenMatProd<double> operation(cotangent);
+    Spectra::SparseSymMatProd<double> operation(decomp_matrix);
 
     // Construct eigen solver object, requesting the largest three eigenvalues
-    Spectra::GenEigsSolver< double, Spectra::SMALLEST_MAGN, Spectra::SparseGenMatProd<double> > eigen_solver(&operation, k, 2*k+1);
+    Spectra::SymEigsSolver< double, Spectra::SMALLEST_ALGE, Spectra::SparseSymMatProd<double> > eigen_solver(&operation, k, 10*k);
 
     // Initialize and compute
     eigen_solver.init();
@@ -273,20 +315,20 @@ Eigen::MatrixXd MS::Reconstruction(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, i
     Eigen::MatrixXd eigenvectors(eigenvectors_complex.rows(), eigenvectors_complex.cols());
 
 	eigenvectors = eigenvectors_complex.real();
-	//eigenvectors = mass_inverse_half * eigenvectors_complex.real();
+	eigenvectors = mass_inverse_half * eigenvectors_complex.real();
 
     Eigen::MatrixXd V_recon(V_in.rows(),3);
     V_recon.setZero();
 
     for(int i=0; i<eigenvectors.cols(); i++){
-        V_recon += eigenvectors.col(i)*(V_in.transpose() * eigenvectors.col(i)).transpose();
+        V_recon += eigenvectors.col(i)*(V_in.transpose() * mass * eigenvectors.col(i)).transpose();
 
 		// Equivalent to:
 		//V_recon.col(0) += (V_in.col(0).transpose() * eigenvectors.col(i))* eigenvectors.col(i);
 		//V_recon.col(1) += (V_in.col(1).transpose() * eigenvectors.col(i))* eigenvectors.col(i);
 		//V_recon.col(2) += (V_in.col(2).transpose() * eigenvectors.col(i))* eigenvectors.col(i);
     }
-
+	
     return V_recon;
 }
 
@@ -315,7 +357,7 @@ Eigen::MatrixXd MS::ImplicitSmoothing(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in
     Eigen::SparseMatrix<double> C = CotangentMatrix(V_in, F_in);
 
     Eigen::SimplicialCholesky<Eigen::SparseMatrix<double>> cholesky(M-lambda*C);
-    // Eigen::SimplicialCholesky<Eigen::SparseMatrix<double>> cholesky(M-lambda*M*L);
+    //Eigen::SimplicialCholesky<Eigen::SparseMatrix<double>> cholesky(M-lambda*M*L);
 
     // Compute b
     for (int i =0; i< iteration; i++){
@@ -357,7 +399,6 @@ Eigen::MatrixXd MS::AddNoise(Eigen::MatrixXd V_in, double sd){
     
 }
 
-
 void MS::test(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in){
 
     Eigen::Matrix<double,Eigen::Dynamic,Eigen::Dynamic> C_out;
@@ -372,4 +413,6 @@ void MS::test(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in){
     //std::cout << C_out << std::endl;
 
 }
+
+
 
