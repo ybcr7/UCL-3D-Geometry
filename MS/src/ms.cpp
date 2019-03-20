@@ -279,7 +279,6 @@ Eigen::VectorXd MS::NonUniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixX
     H.setZero();
 
     Eigen::SparseMatrix<double> LB_sparse = LaplacianBeltramiMatrix(V_in, F_in);
-
     Eigen::MatrixXd LB = LB_sparse.toDense();
     Eigen::MatrixXd cotangent_vertex = LB * V_in;
 
@@ -348,6 +347,7 @@ Eigen::MatrixXd MS::ExplicitSmoothing(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in
     I.setIdentity();
     Eigen::MatrixXd V_out = V_in;
 
+	// Compute using explicit scheme
     for (int i =0; i < iteration; i++){
         V_out = (I+lambda*L)*V_out;
     }
@@ -360,14 +360,14 @@ Eigen::MatrixXd MS::ImplicitSmoothing(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in
     Eigen::MatrixXd V_out = V_in;
 
     // Compute A
-    Eigen::SparseMatrix<double> L = LaplacianBeltramiMatrix(V_in, F_in);
+    //Eigen::SparseMatrix<double> L = LaplacianBeltramiMatrix(V_in, F_in);
     Eigen::SparseMatrix<double> M = BarycentricMassMatrix(V_in, F_in);
     Eigen::SparseMatrix<double> C = CotangentMatrix(V_in, F_in);
 
     Eigen::SimplicialCholesky<Eigen::SparseMatrix<double>> cholesky(M-lambda*C);
     //Eigen::SimplicialCholesky<Eigen::SparseMatrix<double>> cholesky(M-lambda*M*L);
 
-    // Compute b
+    // Solve the SLE
     for (int i =0; i< iteration; i++){
         V_out = cholesky.solve(M*V_out);
     }
@@ -396,9 +396,9 @@ Eigen::MatrixXd MS::AddNoise(Eigen::MatrixXd V_in, double sd){
     
     // Add noise to the vertex
     for (int i=0; i<V_out.rows(); i++){
-        double x =gaussian(rnd)/(10000*noise_scale_x);
-        double y =gaussian(rnd)/(10000*noise_scale_y);
-        double z =gaussian(rnd)/(10000*noise_scale_z);
+        double x =gaussian(rnd)/(1000*noise_scale_x);
+        double y =gaussian(rnd)/(1000*noise_scale_y);
+        double z =gaussian(rnd)/(1000*noise_scale_z);
         Eigen::RowVector3d gaussian_noise(x,y,z);
         V_out.row(i) = V_in.row(i) + gaussian_noise;
     }
