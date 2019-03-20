@@ -149,13 +149,17 @@ Eigen::SparseMatrix<double> MS::CotangentMatrix(Eigen::MatrixXd V_in, Eigen::Mat
 Eigen::SparseMatrix<double> MS::BarycentricMassMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in){
 
     Eigen::SparseMatrix<double> mass_matrix(V_in.rows(), V_in.rows());
+	std::vector<double> area_value_list;
 
-    // Compute the area for each face in the mesh
-    Eigen::MatrixXd area_value_list;
-
-    // This will compute twice the area for each face thus we need to half it
-    igl::doublearea(V_in, F_in, area_value_list);
-    area_value_list *= 0.5;
+	// Compute area of each face using Heron's formula
+	for (int i = 0; i < F_in.rows(); i++) {
+		double a = (V_in.row(F_in.row(i)[0]) - V_in.row(F_in.row(i)[1])).norm();
+		double b = (V_in.row(F_in.row(i)[1]) - V_in.row(F_in.row(i)[2])).norm();
+		double c = (V_in.row(F_in.row(i)[2]) - V_in.row(F_in.row(i)[0])).norm();
+		double s = (a + b + c) / 2;
+		double A = sqrt(s*(s - a)*(s - b)*(s - c));
+		area_value_list.push_back(A);
+	}
 
     // Find connected faces for each vertex
     std::vector<std::vector<int> > VF;
@@ -167,7 +171,7 @@ Eigen::SparseMatrix<double> MS::BarycentricMassMatrix(Eigen::MatrixXd V_in, Eige
         double total_area = 0;
         std::vector<int> faces = VF[i];
         for (int j = 0; j < faces.size(); j++){
-            total_area += area_value_list.row(faces[j])[0];
+            total_area += area_value_list[faces[j]];
         }
 
         // Assign the value diagonally
