@@ -293,8 +293,7 @@ Eigen::MatrixXd MS::Reconstruction(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, i
 
 	Eigen::SparseMatrix<double> cotangent = CotangentMatrix(V_in, F_in);
 	Eigen::SparseMatrix<double> mass = BarycentricMassMatrix(V_in, F_in);
-	Eigen::SparseMatrix<double> mass_inverse = mass.cwiseInverse();
-	Eigen::SparseMatrix<double> mass_inverse_half = mass_inverse.cwiseSqrt();
+	Eigen::SparseMatrix<double> mass_inverse_half = mass.cwiseSqrt().cwiseInverse();
 
 	Eigen::SparseMatrix<double> decomp_matrix = mass_inverse_half  * -1.0 * cotangent * mass_inverse_half;
 
