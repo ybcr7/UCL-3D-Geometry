@@ -341,12 +341,10 @@ Eigen::MatrixXd MS::ImplicitSmoothing(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in
     Eigen::MatrixXd V_out = V_in;
 
     // Compute A
-    //Eigen::SparseMatrix<double> L = LaplacianBeltramiMatrix(V_in, F_in);
     Eigen::SparseMatrix<double> M = BarycentricMassMatrix(V_in, F_in);
     Eigen::SparseMatrix<double> C = CotangentMatrix(V_in, F_in);
 
     Eigen::SimplicialCholesky<Eigen::SparseMatrix<double>> cholesky(M-lambda*C);
-    //Eigen::SimplicialCholesky<Eigen::SparseMatrix<double>> cholesky(M-lambda*M*L);
 
     // Solve the SLE
     for (int i =0; i< iteration; i++){
