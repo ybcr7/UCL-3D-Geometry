@@ -14,7 +14,6 @@
 #include <igl/doublearea.h>
 #include <igl/cotmatrix.h>
 #include <igl/massmatrix.h>
-#include <igl/cotmatrix_entries.h>
 #include <igl/is_edge_manifold.h>
 #include "Spectra/SymEigsSolver.h"
 #include "Spectra/MatOp/SparseSymMatProd.h"
@@ -97,10 +96,22 @@ Eigen::SparseMatrix<double> MS::CotangentMatrix(Eigen::MatrixXd V_in, Eigen::Mat
 				// Because the mesh is manifold, it should return two vertex
 				// However, if the mesh is not naturally manifold e.g. converted from a non-manfold mesh, some information might be broken:
 				// This IF-STATMENT is introduced because it cannot handle the converted manifold cow (but works perfectly with bunny) in order to eliminate the error
-				// In addition, the vertex_face_adjacency() itself also contains a bug that may produce the same surface twice
 				// Without this IF-STATEMENT, the computation will produce exactly 6 errors for 6 vertex which form 2 faces that were removed from the non-manifold mesh using MeshLab
-				if (Vi_adjacent_pair.size() >= 2) {
+				if (Vi_adjacent_pair.size() < 2) {
 				
+					// If the mesh is broken for some reasons
+					// As mentioned before, the manifold mesh should always return the vertex as pair
+					// If an error is detected, we treat this value as invalid
+					double sum = 0;
+
+					// If I != J
+					if (V_in.row(i) != V_in.row(V_adjacent[i][j])) {
+						contangent_matrix.insert(i, V_adjacent[i][j]) = sum;
+						sum_cotangent += sum;
+					}
+				
+				}
+				else {
 					// Get two vertex and compute cotangent
 					V_1 = V_in.row(Vi_adjacent_pair[0]);
 					V_3 = V_in.row(Vi_adjacent_pair[1]);
@@ -116,32 +127,18 @@ Eigen::SparseMatrix<double> MS::CotangentMatrix(Eigen::MatrixXd V_in, Eigen::Mat
 						contangent_matrix.insert(i, V_adjacent[i][j]) = sum;
 						sum_cotangent += sum;
 					}
-				
-				}
-				else {
-					// If the mesh is broken for some reasons
-					// As mentioned before, the manifold mesh should always return the vertex as pair
-					// If an error is detected, we treat this value as invalid
-					double sum = 0;
-
-					// If I != J
-					if (V_in.row(i) != V_in.row(V_adjacent[i][j])) {
-						contangent_matrix.insert(i, V_adjacent[i][j]) = sum;
-						sum_cotangent += sum;
-					}
 				}
             }
 
             // Diagonal direction (I = J)
 			contangent_matrix.insert(i, i) = -1.0 * sum_cotangent;
-            
         }
 
         return contangent_matrix;
 
     }else{
         // Non-Manifold
-		// This function will not be triggered unless using non-manifold mesh
+		// This function will NOT be triggered unless using non-manifold mesh
 		std::cout << "WARNING: Non-Manifold Mesh Detected - Using igl::cotmatrix() Instead" << std::endl;
 		igl::cotmatrix(V_in, F_in, contangent_matrix);
         return contangent_matrix;
@@ -179,38 +176,17 @@ Eigen::SparseMatrix<double> MS::BarycentricMassMatrix(Eigen::MatrixXd V_in, Eige
     return mass_matrix;
 }
 
-Eigen::SparseMatrix<double> MS::LaplacianBeltramiMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in){
+Eigen::SparseMatrix<double> MS::LaplaceBeltramiMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in){
+
+	Eigen::SparseMatrix<double> L_sparse(V_in.rows(), V_in.rows());
 
     Eigen::SparseMatrix<double> mass, cotangent;
     cotangent = CotangentMatrix(V_in, F_in);
     mass = BarycentricMassMatrix(V_in, F_in);
 
-    // For testing purpose: To show that we can obtain the exactly same result obtained from our implementations versus built-in functions
-//    Eigen::SparseMatrix<double> mass_built_in, cotangent_built_in;
-//    igl::massmatrix(V_in, F_in, igl::MASSMATRIX_TYPE_BARYCENTRIC, mass_built_in);
-//    igl::cotmatrix(V_in, F_in, cotangent_built_in);
-//    std::cout << "Result(M): Custom vs Built-in Function" << std::endl;
-//    std::cout << mass.row(0) << std::endl;
-//    std::cout << "-----------------------------------------" << std::endl;
-//    std::cout << mass_built_in.row(0) << std::endl;
-//    std::cout << "Result(C): Custom vs Built-in Function" << std::endl;
-//    Eigen::VectorXd cot_row1 = cotangent.row(0);
-//    Eigen::VectorXd cot_row2 = cotangent_built_in.row(0);
-//    for (int i =0; i < cot_row1.size(); i ++){
-//        if (cot_row1[i]!=0){
-//            std::cout << cot_row1[i] << std::endl;
-//        }
-//    }
-//    std::cout << "-----------------------------------------" << std::endl;
-//    for (int i =0; i < cot_row2.size(); i ++){
-//        if (cot_row2[i]!=0){
-//            std::cout << cot_row2[i] << std::endl;
-//        }
-//    }
-
+	// Compute the inverse of M
 	Eigen::SparseMatrix<double> mass_inverse = mass.cwiseInverse();
 
-    Eigen::SparseMatrix<double> L_sparse(V_in.rows(), V_in.rows());
     L_sparse = mass_inverse * cotangent;
 
     return L_sparse;
@@ -230,7 +206,7 @@ Eigen::VectorXd MS::UniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixXi F
     return H;
 }
 
-Eigen::VectorXd MS::UniformGaussianCurvature(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in){
+Eigen::VectorXd MS::GaussianCurvature(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in){
 
     Eigen::VectorXd K(V_in.rows());
     Eigen::SparseMatrix<double> area = BarycentricMassMatrix(V_in, F_in);
@@ -278,7 +254,7 @@ Eigen::VectorXd MS::NonUniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixX
     Eigen::VectorXd H(V_in.rows());
     H.setZero();
 
-    Eigen::SparseMatrix<double> LB_sparse = LaplacianBeltramiMatrix(V_in, F_in);
+    Eigen::SparseMatrix<double> LB_sparse = LaplaceBeltramiMatrix(V_in, F_in);
     Eigen::MatrixXd LB = LB_sparse.toDense();
     Eigen::MatrixXd cotangent_vertex = LB * V_in;
 
@@ -342,7 +318,7 @@ Eigen::MatrixXd MS::Reconstruction(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, i
 Eigen::MatrixXd MS::ExplicitSmoothing(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, double lambda, int iteration){
 
     //Eigen::SparseMatrix<double> L = MS::LaplacianMatrix(V_in, F_in);
-    Eigen::SparseMatrix<double> L = MS::LaplacianBeltramiMatrix(V_in, F_in);
+    Eigen::SparseMatrix<double> L = MS::LaplaceBeltramiMatrix(V_in, F_in);
     Eigen::SparseMatrix<double> I(V_in.rows(),V_in.rows());
     I.setIdentity();
     Eigen::MatrixXd V_out = V_in;

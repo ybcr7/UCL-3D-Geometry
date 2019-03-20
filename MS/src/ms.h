@@ -5,10 +5,10 @@ namespace MS{
     Eigen::SparseMatrix<double> LaplacianMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
     Eigen::SparseMatrix<double> CotangentMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
     Eigen::SparseMatrix<double> BarycentricMassMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
-    Eigen::SparseMatrix<double> LaplacianBeltramiMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
+    Eigen::SparseMatrix<double> LaplaceBeltramiMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
 
     Eigen::VectorXd UniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
-    Eigen::VectorXd UniformGaussianCurvature(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
+    Eigen::VectorXd GaussianCurvature(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
     Eigen::VectorXd NonUniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
 
     Eigen::MatrixXd Reconstruction(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, int k);

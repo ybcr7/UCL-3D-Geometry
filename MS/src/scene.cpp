@@ -18,7 +18,7 @@ void Scene::Discretisation(int mode){
 
             break;
         case 1:
-            C_out = MS::UniformGaussianCurvature(V,F);
+            C_out = MS::GaussianCurvature(V,F);
 
             break;
         case 2:
@@ -30,7 +30,7 @@ void Scene::Discretisation(int mode){
             break;
     }
 
-    C_out = 100 * C_out.array() / (C_out.maxCoeff() - C_out.minCoeff());
+    C_out = 1000 * C_out.array() / (C_out.maxCoeff() - C_out.minCoeff());
     igl::parula(C_out, false, C);
 
     Visualise(V,F);
@@ -41,7 +41,6 @@ void Scene::Reconstruction() {
     V_out = MS::Reconstruction(V,F,eigenvector);
     Visualise(V_out, F);
 }
-
 
 void Scene::Smoothing(int mode) {
     Eigen::MatrixXd V_out = V;
