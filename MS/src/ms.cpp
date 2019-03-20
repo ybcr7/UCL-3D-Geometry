@@ -291,13 +291,10 @@ Eigen::VectorXd MS::NonUniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixX
 
 Eigen::MatrixXd MS::Reconstruction(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, int k){
 
-	Eigen::SparseMatrix<double> cotangent;// = CotangentMatrix(V_in, F_in);
-	igl::cotmatrix(V_in, F_in, cotangent);
-
+	Eigen::SparseMatrix<double> cotangent = CotangentMatrix(V_in, F_in);
 	Eigen::SparseMatrix<double> mass = BarycentricMassMatrix(V_in, F_in);
-	
 	Eigen::SparseMatrix<double> mass_inverse = mass.cwiseInverse();
-	Eigen::SparseMatrix<double> mass_inverse_half = mass.cwiseSqrt().cwiseInverse();
+	Eigen::SparseMatrix<double> mass_inverse_half = mass_inverse.cwiseSqrt();
 
 	Eigen::SparseMatrix<double> decomp_matrix = mass_inverse_half  * -1.0 * cotangent * mass_inverse_half;
 
@@ -310,12 +307,13 @@ Eigen::MatrixXd MS::Reconstruction(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, i
     // Initialize and compute
     eigen_solver.init();
     int nconv = eigen_solver.compute();
+
     // Retrieve results
-    Eigen::VectorXcd eigenvalues_complex;
+    //Eigen::VectorXcd eigenvalues_complex;
     Eigen::MatrixXcd eigenvectors_complex;
 
     if(eigen_solver.info() == Spectra::SUCCESSFUL){
-        eigenvalues_complex = eigen_solver.eigenvalues();
+        //eigenvalues_complex = eigen_solver.eigenvalues();
         eigenvectors_complex = eigen_solver.eigenvectors();
     }else{
         std::cout << "ERROR: No smallest eigenvectors found" << std::endl;
