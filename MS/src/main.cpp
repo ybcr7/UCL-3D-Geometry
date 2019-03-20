@@ -24,6 +24,7 @@ int main(int argc, char *argv[]){
     int iteration = 20;
     double lambda = 0.00000015;
     double noise = 0.5;
+	double curvature_display_scale = 5;
     static const char *models[]{"camelhead.off","bunny.off","cow_manifold.off"};
     static int model_index = 1;
 
@@ -31,6 +32,7 @@ int main(int argc, char *argv[]){
     scene.SetIteration(iteration);
     scene.SetLambda(lambda);
     scene.SetNoise(noise);
+	scene.SetCurvatureDisplayScale(curvature_display_scale);
 
     // Draw an optional panel for adjusting global variables
     menu.callback_draw_viewer_menu = [&]()
@@ -48,6 +50,10 @@ int main(int argc, char *argv[]){
             if (ImGui::Button("Reset Scene", ImVec2(-1, 0))) {
                 scene.Initialise(models[model_index]);
             }
+
+			if (ImGui::InputDouble("Curvature Display Scale", &curvature_display_scale, 0, 0, "%.1f")) {
+				scene.SetCurvatureDisplayScale(curvature_display_scale);
+			}
         }
     };
     

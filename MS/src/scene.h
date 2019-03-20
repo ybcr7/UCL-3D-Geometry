@@ -20,6 +20,7 @@ public:
     void SetIteration(int i);
     void SetLambda(double l);
     void SetNoise(double n);
+	void SetCurvatureDisplayScale(double s);
     
 private:
     
@@ -34,4 +35,5 @@ private:
     double lambda;
     double noise;
     int eigenvector;
+	double curvature_display_scale;
 };

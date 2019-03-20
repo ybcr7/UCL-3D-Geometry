@@ -30,7 +30,7 @@ void Scene::Discretisation(int mode){
             break;
     }
 
-    C_out = 1000 * C_out.array() / (C_out.maxCoeff() - C_out.minCoeff());
+    C_out = curvature_display_scale * C_out.array() / (C_out.maxCoeff() - C_out.minCoeff());
     igl::parula(C_out, false, C);
 
     Visualise(V,F);
@@ -49,14 +49,14 @@ void Scene::Smoothing(int mode) {
         case 0:
             V_out = MS::ExplicitSmoothing(V_out,F,lambda,iteration);
             C_out = MS::UniformMeanCurvature(V_out,F);
-            C_out = 5 * C_out.array() / (C_out.maxCoeff() - C_out.minCoeff());
+            C_out = curvature_display_scale * C_out.array() / (C_out.maxCoeff() - C_out.minCoeff());
             igl::parula(C_out, false, C);
             Visualise(V_out,F);
             break;
         case 1:
             V_out = MS::ImplicitSmoothing(V_out,F,lambda,iteration);
             C_out = MS::UniformMeanCurvature(V_out,F);
-            C_out = 5 * C_out.array() / (C_out.maxCoeff() - C_out.minCoeff());
+            C_out = curvature_display_scale * C_out.array() / (C_out.maxCoeff() - C_out.minCoeff());
             igl::parula(C_out, false, C);
             Visualise(V_out,F);
             break;
@@ -132,6 +132,15 @@ void Scene::SetNoise(double n) {
     } else {
         noise = n;
     }
+}
+
+void Scene::SetCurvatureDisplayScale(double s) {
+	if (s < 0) {
+		curvature_display_scale = 0;
+	}
+	else {
+		curvature_display_scale = s;
+	}
 }
 
 void Scene::Visualise(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in){

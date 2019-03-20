@@ -1,20 +1,19 @@
 #define _USE_MATH_DEFINES
+#include <iostream>
 #include <cmath>
+#include <math.h>
+#include <random>
 #include <Eigen/Core>
 #include <Eigen/Dense>
 #include <Eigen/SparseCore>
 #include <Eigen/Sparse>
 #include <Eigen/SparseCholesky>
-#include <random>
-#include <iostream>
-#include <math.h>
-#include <igl/bounding_box.h>
 #include <igl/vertex_triangle_adjacency.h>
 #include <igl/adjacency_list.h>
-#include <igl/doublearea.h>
+#include <igl/bounding_box.h>
+#include <igl/is_edge_manifold.h>
 #include <igl/cotmatrix.h>
 #include <igl/massmatrix.h>
-#include <igl/is_edge_manifold.h>
 #include "Spectra/SymEigsSolver.h"
 #include "Spectra/MatOp/SparseSymMatProd.h"
 #include "ms.h"
@@ -274,6 +273,7 @@ Eigen::MatrixXd MS::Reconstruction(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, i
 	Eigen::SparseMatrix<double> mass = BarycentricMassMatrix(V_in, F_in);
 	Eigen::SparseMatrix<double> mass_inverse_half = mass.cwiseSqrt().cwiseInverse();
 
+	// L' = M^-0.5 * -C * M^-0.5
 	Eigen::SparseMatrix<double> decomp_matrix = mass_inverse_half  * -1.0 * cotangent * mass_inverse_half;
 
     // Construct matrix operation object using the wrapper class SparseGenMatProd
@@ -301,13 +301,14 @@ Eigen::MatrixXd MS::Reconstruction(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, i
 	// Convert complex values to real values
     Eigen::MatrixXd eigenvectors(eigenvectors_complex.rows(), eigenvectors_complex.cols());
 
-	eigenvectors = eigenvectors_complex.real();
+	// ei = M^-0.5 * yi
 	eigenvectors = mass_inverse_half * eigenvectors_complex.real();
 
     Eigen::MatrixXd V_recon(V_in.rows(),3);
     V_recon.setZero();
 
     for(int i=0; i<eigenvectors.cols(); i++){
+		// Redefine the inner product
         V_recon += eigenvectors.col(i)*(V_in.transpose() * mass * eigenvectors.col(i)).transpose();
 
 		// Equivalent to:
@@ -386,6 +387,3 @@ Eigen::MatrixXd MS::AddNoise(Eigen::MatrixXd V_in, double sd){
     return V_out;
     
 }
-
-
-
