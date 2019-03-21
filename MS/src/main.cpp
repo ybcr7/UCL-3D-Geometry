@@ -25,8 +25,10 @@ int main(int argc, char *argv[]){
     double lambda = 0.00000015;
     double noise = 0.5;
 	double curvature_display_scale = 5;
+	int compare = 0;
     static const char *models[]{"cube.off","bunny.off","cow_manifold.off","camel.off"};
     static int model_index = 1;
+	
 
     scene.SetNumEigenvector(eigenvector);
     scene.SetIteration(iteration);
@@ -103,10 +105,12 @@ int main(int argc, char *argv[]){
 
             if (ImGui::Button("Explicit Smoothing", ImVec2(-1, 0))){
                 scene.Smoothing(0);
+				compare = 1;
             }
 
             if (ImGui::Button("Implicit Smoothing", ImVec2(-1, 0))){
                 scene.Smoothing(1);
+				compare = 1;
             }
 
             if(ImGui::InputDouble("Noise", &noise, 0, 0, "%.10f")){
@@ -114,9 +118,14 @@ int main(int argc, char *argv[]){
             }
 
             if (ImGui::Button("Add Noise", ImVec2(-1, 0))) {
-                scene.Initialise(models[model_index]);
                 scene.AddNoise();
+				compare = 0;
             }
+
+			if (ImGui::SliderInt("Noise/Denoise", &compare, 0, 1))
+			{
+				scene.VisualiseComparison(compare);
+			}
         }
 
         ImGui::End();

@@ -43,22 +43,22 @@ void Scene::Reconstruction() {
 }
 
 void Scene::Smoothing(int mode) {
-    Eigen::MatrixXd V_out = V_noise;
+	V_denoise = V_noise;
     Eigen::VectorXd C_out;
     switch (mode){
         case 0:
-            V_out = MS::ExplicitSmoothing(V_out,F,lambda,iteration);
-            C_out = MS::UniformMeanCurvature(V_out,F);
+			V_denoise = MS::ExplicitSmoothing(V_denoise,F,lambda,iteration);
+            C_out = MS::UniformMeanCurvature(V_denoise,F);
             C_out = curvature_display_scale * C_out.array() / (C_out.maxCoeff() - C_out.minCoeff());
             igl::parula(C_out, false, C);
-            Visualise(V_out,F);
+            Visualise(V_denoise,F);
             break;
         case 1:
-            V_out = MS::ImplicitSmoothing(V_out,F,lambda,iteration);
-            C_out = MS::UniformMeanCurvature(V_out,F);
+			V_denoise = MS::ImplicitSmoothing(V_denoise,F,lambda,iteration);
+            C_out = MS::UniformMeanCurvature(V_denoise,F);
             C_out = curvature_display_scale * C_out.array() / (C_out.maxCoeff() - C_out.minCoeff());
             igl::parula(C_out, false, C);
-            Visualise(V_out,F);
+            Visualise(V_denoise,F);
             break;
         default:
             std::cout << "ERROR: Undefined Smoothing Mode" << std::endl;
@@ -81,6 +81,7 @@ void Scene::Initialise(std::string filename){
             if (igl::readOFF(FILE_PATH+filename, V, F)) {
                 file_found = true;
 				V_noise = V;
+				V_denoise = V;
                 break;
             }
         }
@@ -98,8 +99,25 @@ void Scene::Initialise(std::string filename){
     Visualise(V,F);
 }
 
+void Scene::VisualiseComparison(int mode) {
+
+	switch (mode) {
+	case 0:
+		Visualise(V_noise, F);
+		break;
+	case 1:
+		Visualise(V_denoise, F);
+		break;
+	default:
+		Visualise(V, F);
+		break;
+	}
+}
+
+
 void Scene::AddNoise(){
     V_noise = MS::AddNoise(V, noise);
+	V_denoise = V_noise;
     Visualise(V_noise, F);
 }
 
