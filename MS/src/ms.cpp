@@ -58,7 +58,7 @@ Eigen::SparseMatrix<double> MS::CotangentMatrix(Eigen::MatrixXd V_in, Eigen::Mat
 		std::vector<std::vector<int> > VFi;
 		igl::vertex_triangle_adjacency(V_in.rows(), F_in, VF, VFi);
 
-        // Compute the cotangent of alpha and beta and construct the Laplacian matrix
+		// Compute the cotangent of alpha and beta and construct the Laplacian matrix
         Eigen::Vector3d V_current, V_1, V_2, V_3;
         for (int i = 0; i < V_adjacent.size(); i++){
 
@@ -91,13 +91,12 @@ Eigen::SparseMatrix<double> MS::CotangentMatrix(Eigen::MatrixXd V_in, Eigen::Mat
 						Vi_adjacent_pair.push_back(Vi_found[0]);
 					}
 				}
-
+						
 				// Because the mesh is manifold, it should return two vertex
 				// However, if the mesh is not naturally manifold e.g. converted from a non-manfold mesh, some information might be broken:
 				// This IF-STATMENT is introduced because it cannot handle the converted manifold cow (but works perfectly with bunny) in order to eliminate the error
 				// Without this IF-STATEMENT, the computation will produce exactly 6 errors for 6 vertex which form 2 faces that were removed from the non-manifold mesh using MeshLab
 				if (Vi_adjacent_pair.size() < 2) {
-				
 					// If the mesh is broken for some reasons
 					// As mentioned before, the manifold mesh should always return the vertex as pair
 					// If an error is detected, we treat this value as invalid
@@ -109,8 +108,7 @@ Eigen::SparseMatrix<double> MS::CotangentMatrix(Eigen::MatrixXd V_in, Eigen::Mat
 						sum_cotangent += sum;
 					}
 				
-				}
-				else {
+				}else {
 					// Get two vertex and compute cotangent
 					V_1 = V_in.row(Vi_adjacent_pair[0]);
 					V_3 = V_in.row(Vi_adjacent_pair[1]);
@@ -122,7 +120,7 @@ Eigen::SparseMatrix<double> MS::CotangentMatrix(Eigen::MatrixXd V_in, Eigen::Mat
 					double sum = 0.5 * (1.0 / std::tan(std::acos(cosine_alpha)) + 1.0 / std::tan(std::acos(cosine_beta)));
 
 					// If I != J
-					if (V_in.row(i) != V_in.row(V_adjacent[i][j])) {
+					if (i !=V_adjacent[i][j]) {
 						contangent_matrix.insert(i, V_adjacent[i][j]) = sum;
 						sum_cotangent += sum;
 					}
@@ -143,6 +141,178 @@ Eigen::SparseMatrix<double> MS::CotangentMatrix(Eigen::MatrixXd V_in, Eigen::Mat
         return contangent_matrix;
     };
 
+}
+
+Eigen::SparseMatrix<double> MS::CotangentMatrix2(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in) {
+
+	std::cout << "Size:" << V_in.rows() << std::endl;
+
+	int ccc =  0;
+
+	Eigen::SparseMatrix<double> contangent_matrix(V_in.rows(), V_in.rows());
+
+	// Find connected vertex for each vertex (ordered)
+	std::vector<std::vector<int>> V_adjacent;
+	igl::adjacency_list(F_in, V_adjacent, true);
+
+	// Find connected faces for each vertex
+	std::vector<std::vector<int> > VF;
+	std::vector<std::vector<int> > VFi;
+	igl::vertex_triangle_adjacency(V_in.rows(), F_in, VF, VFi);
+
+	// Compute the cotangent of alpha and beta and construct the Laplacian matrix
+	Eigen::Vector3d V_current, V_1, V_2, V_3;
+	for (int i = 0; i < V_adjacent.size(); i++) {
+
+		double sum_cotangent = 0;
+		V_current = V_in.row(i);
+
+		// Find a list of faces that only connect to the current vertex
+		std::vector<int> Fi_connected = VF[i];
+		std::vector<int> V_adjacent_verified;
+
+		// Filter invalid vertex
+		for (int v = 0; v < V_adjacent[i].size(); v++) {
+			
+			int count = 0;
+
+			for (int f = 0; f < Fi_connected.size(); f++) {
+				Eigen::Vector3i F_current = F_in.row(Fi_connected[f]);
+
+				// If any face contains this edge (i <-> j)
+				if (F_current.x() == V_adjacent[i][v] || F_current.y() == V_adjacent[i][v] || F_current.z() == V_adjacent[i][v]) {
+					count += 1;
+				}
+			}
+
+			if (count == 0) {
+				std::cout << "WARNBING: ISOLATED VERTEX @" << V_adjacent[i][v] << std::endl;
+			}
+			else if (count ==1) {
+				std::cout << "WARNNING: ABNORMAL VERTEX @" << V_adjacent[i][v] << std::endl;
+			}
+			else if (count == 2) {
+				V_adjacent_verified.push_back(V_adjacent[i][v]);
+			}
+			else if (count > 2) {
+				V_adjacent_verified.push_back(V_adjacent[i][v]);
+				std::cout << ">2" << std::endl;
+			}
+		}
+
+		if (V_adjacent_verified.size() < 3) {
+			
+			for (int j = 0; j < V_adjacent_verified.size(); j++) {
+				double sum = 0;
+
+				// If I != J
+				if (i != V_adjacent_verified[j]) {
+					contangent_matrix.insert(i, V_adjacent_verified[j]) = sum;
+					sum_cotangent += sum;
+				}
+			}
+			
+		}
+		else {
+		
+			for (int j = 0; j < V_adjacent_verified.size(); j++) {
+				if (j == 0) {
+					V_1 = V_in.row(V_adjacent_verified[V_adjacent_verified.size() - 1]);
+					V_2 = V_in.row(V_adjacent_verified[j]);
+					V_3 = V_in.row(V_adjacent_verified[j + 1]);
+				}
+				else if (j + 1 == V_adjacent[i].size()) {
+					V_1 = V_in.row(V_adjacent_verified[j - 1]);
+					V_2 = V_in.row(V_adjacent_verified[j]);
+					V_3 = V_in.row(V_adjacent_verified[0]);
+				}
+				else {
+					V_1 = V_in.row(V_adjacent_verified[j - 1]);
+					V_2 = V_in.row(V_adjacent_verified[j]);
+					V_3 = V_in.row(V_adjacent_verified[j + 1]);
+				}
+
+				double cosine_alpha = (V_current - V_1).dot(V_2 - V_1) / ((V_current - V_1).norm()*(V_2 - V_1).norm());
+				double cosine_beta = (V_current - V_3).dot(V_2 - V_3) / ((V_current - V_3).norm()*(V_2 - V_3).norm());
+				double sum = 0.5 * (1.0 / std::tan(std::acos(cosine_alpha)) + 1.0 / std::tan(std::acos(cosine_beta)));
+
+				// If I != J
+				if (i != V_adjacent_verified[j]) {
+					contangent_matrix.insert(i, V_adjacent_verified[j]) = sum;
+					sum_cotangent += sum;
+				}
+			}
+		
+		}
+
+		// Diagonal direction (I = J)
+		contangent_matrix.insert(i, i) = -1.0 * sum_cotangent;
+
+	}
+
+	return contangent_matrix;
+}
+Eigen::SparseMatrix<double> MS::CotangentMatrix3(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in) {
+
+
+	Eigen::SparseMatrix<double> contangent_matrix(V_in.rows(), V_in.rows());
+
+	if (igl::is_edge_manifold(F_in)) {
+		// Manifold
+		std::cout << "Manifold Mesh - Using MS::CotangentMatrix()" << std::endl;
+
+		// Find connected vertex for each vertex (ordered)
+		std::vector<std::vector<int>> V_adjacent;
+		igl::adjacency_list(F_in, V_adjacent, true);
+
+		// Compute the cotangent of alpha and beta and construct the Laplacian matrix
+		Eigen::Vector3d V_current, V_1, V_2, V_3;
+		for (int i = 0; i < V_adjacent.size(); i++) {
+
+			double sum_cotangent = 0;
+			V_current = V_in.row(i);
+
+			// Find three continuous vertex in order to compute the degrees
+			for (int j = 0; j < V_adjacent[i].size(); j++) {
+				if (j == 0) {
+					V_1 = V_in.row(V_adjacent[i][V_adjacent[i].size() - 1]);
+					V_2 = V_in.row(V_adjacent[i][j]);
+					V_3 = V_in.row(V_adjacent[i][j + 1]);
+				}
+				else if (j + 1 == V_adjacent[i].size()) {
+					V_1 = V_in.row(V_adjacent[i][j - 1]);
+					V_2 = V_in.row(V_adjacent[i][j]);
+					V_3 = V_in.row(V_adjacent[i][0]);
+				}
+				else {
+					V_1 = V_in.row(V_adjacent[i][j - 1]);
+					V_2 = V_in.row(V_adjacent[i][j]);
+					V_3 = V_in.row(V_adjacent[i][j + 1]);
+				}
+
+				double cosine_alpha = (V_current - V_1).dot(V_2 - V_1) / ((V_current - V_1).norm()*(V_2 - V_1).norm());
+				double cosine_beta = (V_current - V_3).dot(V_2 - V_3) / ((V_current - V_3).norm()*(V_2 - V_3).norm());
+				double sum = 0.5 * (1.0 / std::tan(std::acos(cosine_alpha)) + 1.0 / std::tan(std::acos(cosine_beta)));
+
+				// If I != J
+				if (V_in.row(i) != V_in.row(V_adjacent[i][j])) {
+					contangent_matrix.insert(i, V_adjacent[i][j]) = sum;
+					sum_cotangent += sum;
+				}
+
+			}
+			// Diagonal direction (I = J)
+			contangent_matrix.insert(i, i) = -1.0 * sum_cotangent;
+		}
+		return contangent_matrix;
+
+	}
+	else {
+		// Non-Manifold
+		std::cout << "Non-Manifold Mesh - Using igl::cotmatrix()" << std::endl;
+		igl::cotmatrix(V_in, F_in, contangent_matrix);
+		return contangent_matrix;
+	};
 }
 
 Eigen::SparseMatrix<double> MS::BarycentricMassMatrix(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in){
@@ -320,7 +490,6 @@ Eigen::MatrixXd MS::Reconstruction(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, i
 
 Eigen::MatrixXd MS::ExplicitSmoothing(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, double lambda, int iteration){
 
-    //Eigen::SparseMatrix<double> L = MS::LaplacianMatrix(V_in, F_in);
     Eigen::SparseMatrix<double> L = MS::LaplaceBeltramiMatrix(V_in, F_in);
     Eigen::SparseMatrix<double> I(V_in.rows(),V_in.rows());
     I.setIdentity();
