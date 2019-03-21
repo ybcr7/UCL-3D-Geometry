@@ -26,7 +26,7 @@ private:
     
     igl::opengl::glfw::Viewer& viewer;
     
-    Eigen::MatrixXd V;
+    Eigen::MatrixXd V, V_noise;
     Eigen::MatrixXi F;
     Eigen::MatrixXd C;
     Eigen::RowVector3d default_C;

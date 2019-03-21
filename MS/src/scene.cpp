@@ -43,7 +43,7 @@ void Scene::Reconstruction() {
 }
 
 void Scene::Smoothing(int mode) {
-    Eigen::MatrixXd V_out = V;
+    Eigen::MatrixXd V_out = V_noise;
     Eigen::VectorXd C_out;
     switch (mode){
         case 0:
@@ -80,6 +80,7 @@ void Scene::Initialise(std::string filename){
         {
             if (igl::readOFF(FILE_PATH+filename, V, F)) {
                 file_found = true;
+				V_noise = V;
                 break;
             }
         }
@@ -98,8 +99,8 @@ void Scene::Initialise(std::string filename){
 }
 
 void Scene::AddNoise(){
-    V = MS::AddNoise(V, noise);
-    Visualise(V, F);
+    V_noise = MS::AddNoise(V, noise);
+    Visualise(V_noise, F);
 }
 
 void Scene::SetNumEigenvector(int e) {

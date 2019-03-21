@@ -51,7 +51,7 @@ int main(int argc, char *argv[]){
                 scene.Initialise(models[model_index]);
             }
 
-			if (ImGui::InputDouble("Curvature Display Scale", &curvature_display_scale, 0, 0, "%.1f")) {
+			if (ImGui::InputDouble("Curvature Scale", &curvature_display_scale, 0, 0, "%.1f")) {
 				scene.SetCurvatureDisplayScale(curvature_display_scale);
 			}
         }
