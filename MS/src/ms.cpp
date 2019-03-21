@@ -370,9 +370,9 @@ Eigen::MatrixXd MS::AddNoise(Eigen::MatrixXd V_in, double sd){
     
     // Add noise to the vertex
     for (int i=0; i<V_out.rows(); i++){
-        double x =gaussian(rnd)/(1000*noise_scale_x);
-        double y =gaussian(rnd)/(1000*noise_scale_y);
-        double z =gaussian(rnd)/(1000*noise_scale_z);
+        double x =gaussian(rnd)*noise_scale_x/100;
+        double y =gaussian(rnd)*noise_scale_y/100;
+        double z =gaussian(rnd)*noise_scale_z/100;
         Eigen::RowVector3d gaussian_noise(x,y,z);
         V_out.row(i) = V_in.row(i) + gaussian_noise;
     }
