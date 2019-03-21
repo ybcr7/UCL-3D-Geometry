@@ -14,7 +14,5 @@ namespace MS{
     Eigen::MatrixXd ImplicitSmoothing(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, double lambda, int iteration);
     Eigen::MatrixXd AddNoise(Eigen::MatrixXd V_in, double noise);
 
-	Eigen::SparseMatrix<double> CotangentMatrix2(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
-	Eigen::SparseMatrix<double> CotangentMatrix3(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
 }
 
