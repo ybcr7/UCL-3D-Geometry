@@ -17,6 +17,8 @@ public:
     void Initialise(std::string filename);
     void Visualise(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in);
 	void VisualiseComparison(int mode);
+	void VisualiseCurvature();
+	void ResetColor();
     void SetNumEigenvector(int e);
     void SetIteration(int i);
     void SetLambda(double l);
@@ -27,10 +29,11 @@ private:
     
     igl::opengl::glfw::Viewer& viewer;
     
-    Eigen::MatrixXd V, V_noise, V_denoise;
+    Eigen::MatrixXd V, V_unsmoothed, V_smoothed;
     Eigen::MatrixXi F;
     Eigen::MatrixXd C;
     Eigen::RowVector3d default_C;
+	Eigen::VectorXd C_curvature;
     
     int iteration;
     double lambda;

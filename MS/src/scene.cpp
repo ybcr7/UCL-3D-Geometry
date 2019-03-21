@@ -11,54 +11,51 @@ Scene::Scene(igl::opengl::glfw::Viewer& refViewer):viewer(refViewer){
 Scene::~Scene(){}
 
 void Scene::Discretisation(int mode){
-    Eigen::VectorXd C_out;
+    
     switch (mode){
         case 0:
-            C_out = MS::UniformMeanCurvature(V,F);
-
+			C_curvature = MS::UniformMeanCurvature(V,F);
             break;
         case 1:
-            C_out = MS::GaussianCurvature(V,F);
-
+			C_curvature = MS::GaussianCurvature(V,F);
             break;
         case 2:
-            C_out = MS::NonUniformMeanCurvature(V,F);
-
+			C_curvature = MS::NonUniformMeanCurvature(V,F);
             break;
         default:
             std::cout << "ERROR: Undefined Discretisation Mode" << std::endl;
             break;
     }
 
-    C_out = curvature_display_scale * C_out.array() / (C_out.maxCoeff() - C_out.minCoeff());
-    igl::parula(C_out, false, C);
+	VisualiseCurvature();
 
-    Visualise(V,F);
 }
 
 void Scene::Reconstruction() {
+	ResetColor();
     Eigen::MatrixXd V_out(V.rows(),V.cols());
     V_out = MS::Reconstruction(V,F,eigenvector);
     Visualise(V_out, F);
 }
 
 void Scene::Smoothing(int mode) {
-	V_denoise = V_noise;
+	ResetColor();
+	V_smoothed = V_unsmoothed;
     Eigen::VectorXd C_out;
     switch (mode){
         case 0:
-			V_denoise = MS::ExplicitSmoothing(V_denoise,F,lambda,iteration);
-            C_out = MS::UniformMeanCurvature(V_denoise,F);
-            C_out = curvature_display_scale * C_out.array() / (C_out.maxCoeff() - C_out.minCoeff());
-            igl::parula(C_out, false, C);
-            Visualise(V_denoise,F);
+			V_smoothed = MS::ExplicitSmoothing(V_smoothed,F,lambda,iteration);
+            //C_out = MS::UniformMeanCurvature(V_denoise,F);
+            //C_out = curvature_display_scale * C_out.array() / (C_out.maxCoeff() - C_out.minCoeff());
+            //igl::parula(C_out, false, C);
+            Visualise(V_smoothed,F);
             break;
         case 1:
-			V_denoise = MS::ImplicitSmoothing(V_denoise,F,lambda,iteration);
-            C_out = MS::UniformMeanCurvature(V_denoise,F);
-            C_out = curvature_display_scale * C_out.array() / (C_out.maxCoeff() - C_out.minCoeff());
-            igl::parula(C_out, false, C);
-            Visualise(V_denoise,F);
+			V_smoothed = MS::ImplicitSmoothing(V_smoothed,F,lambda,iteration);
+            //C_out = MS::UniformMeanCurvature(V_denoise,F);
+            //C_out = curvature_display_scale * C_out.array() / (C_out.maxCoeff() - C_out.minCoeff());
+            //igl::parula(C_out, false, C);
+            Visualise(V_smoothed,F);
             break;
         default:
             std::cout << "ERROR: Undefined Smoothing Mode" << std::endl;
@@ -80,8 +77,10 @@ void Scene::Initialise(std::string filename){
         {
             if (igl::readOFF(FILE_PATH+filename, V, F)) {
                 file_found = true;
-				V_noise = V;
-				V_denoise = V;
+				V_unsmoothed = V;
+				V_smoothed = V;
+				C_curvature.resize(V.rows());
+				C_curvature.setZero();
                 break;
             }
         }
@@ -92,10 +91,7 @@ void Scene::Initialise(std::string filename){
         exit(1);
     }
 
-    C.resize(V.rows(),V.cols());
-    for (int i = 0; i < V.rows(); i++){
-        C.row(i) = default_C;
-    }
+	ResetColor();
     Visualise(V,F);
 }
 
@@ -103,10 +99,10 @@ void Scene::VisualiseComparison(int mode) {
 
 	switch (mode) {
 	case 0:
-		Visualise(V_noise, F);
+		Visualise(V_unsmoothed, F);
 		break;
 	case 1:
-		Visualise(V_denoise, F);
+		Visualise(V_smoothed, F);
 		break;
 	default:
 		Visualise(V, F);
@@ -114,11 +110,10 @@ void Scene::VisualiseComparison(int mode) {
 	}
 }
 
-
 void Scene::AddNoise(){
-    V_noise = MS::AddNoise(V, noise);
-	V_denoise = V_noise;
-    Visualise(V_noise, F);
+	V_unsmoothed = MS::AddNoise(V, noise);
+	V_smoothed = V_unsmoothed;
+    Visualise(V_unsmoothed, F);
 }
 
 void Scene::SetNumEigenvector(int e) {
@@ -162,10 +157,25 @@ void Scene::SetCurvatureDisplayScale(double s) {
 	}
 }
 
+void Scene::ResetColor() {
+	C.resize(V.rows(), V.cols());
+	for (int i = 0; i < V.rows(); i++) {
+		C.row(i) = default_C;
+	}
+}
+
 void Scene::Visualise(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in){
     viewer.data().clear();
     viewer.data().show_overlay_depth = 1;
     viewer.data().set_mesh(V_in, F_in);
     viewer.data().set_colors(C);
     viewer.core.align_camera_center(V_in, F_in);
+}
+
+void Scene::VisualiseCurvature() {
+	Eigen::VectorXd C_curvature_scaled;
+	C_curvature_scaled = curvature_display_scale * C_curvature.array() / (C_curvature.maxCoeff() - C_curvature.minCoeff());
+	igl::parula(C_curvature_scaled, false, C);
+	Visualise(V, F);
+
 }

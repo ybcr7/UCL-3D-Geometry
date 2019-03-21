@@ -29,7 +29,6 @@ int main(int argc, char *argv[]){
     static const char *models[]{"cube.off","bunny.off","cow_manifold.off","camel.off"};
     static int model_index = 1;
 	
-
     scene.SetNumEigenvector(eigenvector);
     scene.SetIteration(iteration);
     scene.SetLambda(lambda);
@@ -55,6 +54,7 @@ int main(int argc, char *argv[]){
 
 			if (ImGui::InputDouble("Curvature Scale", &curvature_display_scale, 0, 0, "%.1f")) {
 				scene.SetCurvatureDisplayScale(curvature_display_scale);
+				scene.VisualiseCurvature();
 			}
         }
     };
@@ -122,7 +122,7 @@ int main(int argc, char *argv[]){
 				compare = 0;
             }
 
-			if (ImGui::SliderInt("Noise/Denoise", &compare, 0, 1))
+			if (ImGui::SliderInt("Unsmoothed/Smoothed", &compare, 0, 1))
 			{
 				scene.VisualiseComparison(compare);
 			}
