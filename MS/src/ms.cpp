@@ -269,6 +269,9 @@ Eigen::VectorXd MS::NonUniformMeanCurvature(Eigen::MatrixXd V_in, Eigen::MatrixX
 
 Eigen::MatrixXd MS::Reconstruction(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, int k){
 
+	Eigen::MatrixXd V_recon(V_in.rows(), V_in.cols());
+	V_recon.setZero();
+
 	Eigen::SparseMatrix<double> cotangent = CotangentMatrix(V_in, F_in);
 	Eigen::SparseMatrix<double> mass = BarycentricMassMatrix(V_in, F_in);
 	Eigen::SparseMatrix<double> mass_inverse_half = mass.cwiseSqrt().cwiseInverse();
@@ -287,15 +290,13 @@ Eigen::MatrixXd MS::Reconstruction(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, i
     int nconv = eigen_solver.compute();
 
     // Retrieve results
-    //Eigen::VectorXcd eigenvalues_complex;
     Eigen::MatrixXcd eigenvectors_complex;
 
     if(eigen_solver.info() == Spectra::SUCCESSFUL){
-        //eigenvalues_complex = eigen_solver.eigenvalues();
         eigenvectors_complex = eigen_solver.eigenvectors();
     }else{
         std::cout << "ERROR: No smallest eigenvectors found" << std::endl;
-		return V_in;
+		return V_recon;
     }
 
 	// Convert complex values to real values
@@ -303,9 +304,6 @@ Eigen::MatrixXd MS::Reconstruction(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, i
 
 	// ei = M^-0.5 * yi
 	eigenvectors = mass_inverse_half * eigenvectors_complex.real();
-
-    Eigen::MatrixXd V_recon(V_in.rows(),3);
-    V_recon.setZero();
 
     for(int i=0; i<eigenvectors.cols(); i++){
 		// Redefine the inner product
