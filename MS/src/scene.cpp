@@ -45,12 +45,12 @@ void Scene::Smoothing(int mode) {
     switch (mode){
         case 0:
 			V_smoothed = MS::ExplicitSmoothing(V_smoothed,F,lambda,iteration);
-			C_curvature = MS::NonUniformMeanCurvature(V_smoothed, F);
+			//C_curvature = MS::NonUniformMeanCurvature(V_smoothed, F);
             Visualise(V_smoothed,F);
             break;
         case 1:
 			V_smoothed = MS::ImplicitSmoothing(V_smoothed,F,lambda,iteration);
-			C_curvature = MS::NonUniformMeanCurvature(V_smoothed, F);
+			//C_curvature = MS::NonUniformMeanCurvature(V_smoothed, F);
             Visualise(V_smoothed,F);
             break;
         default:
