@@ -21,13 +21,13 @@ int main(int argc, char *argv[]){
 
 	// Menu variable shared between two menus
     int eigenvector = 5;
-    int iteration = 20;
+    int iteration = 200;
     double lambda = 0.00000015;
     double noise = 0.5;
 	double curvature_display_scale = 5;
 	int compare = 0;
-    static const char *models[]{"cube.off","bunny.off","cow_manifold.off","camel.off"};
-    static int model_index = 1;
+    static const char *models[]{"bunny.off","cow_manifold.off","camel.off"};
+    static int model_index = 0;
 	
     scene.SetNumEigenvector(eigenvector);
     scene.SetIteration(iteration);

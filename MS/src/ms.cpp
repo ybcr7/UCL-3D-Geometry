@@ -304,13 +304,8 @@ Eigen::MatrixXd MS::Reconstruction(Eigen::MatrixXd V_in, Eigen::MatrixXi F_in, i
 	eigenvectors = mass_inverse_half * eigenvectors_complex.real();
 
     for(int i=0; i<eigenvectors.cols(); i++){
-		// Redefine the inner product
+		// Redefine the inner product (normalisation)
         V_recon += eigenvectors.col(i)*(V_in.transpose() * mass * eigenvectors.col(i)).transpose();
-
-		// Equivalent to:
-		//V_recon.col(0) += (V_in.col(0).transpose() * mass * eigenvectors.col(i))* eigenvectors.col(i);
-		//V_recon.col(1) += (V_in.col(1).transpose() * mass * eigenvectors.col(i))* eigenvectors.col(i);
-		//V_recon.col(2) += (V_in.col(2).transpose() * mass * eigenvectors.col(i))* eigenvectors.col(i);
     }
 	
     return V_recon;
