@@ -45,22 +45,19 @@ void Scene::Smoothing(int mode) {
     switch (mode){
         case 0:
 			V_smoothed = MS::ExplicitSmoothing(V_smoothed,F,lambda,iteration);
-            //C_out = MS::UniformMeanCurvature(V_denoise,F);
-            //C_out = curvature_display_scale * C_out.array() / (C_out.maxCoeff() - C_out.minCoeff());
-            //igl::parula(C_out, false, C);
+			C_curvature = MS::NonUniformMeanCurvature(V_smoothed, F);
             Visualise(V_smoothed,F);
             break;
         case 1:
 			V_smoothed = MS::ImplicitSmoothing(V_smoothed,F,lambda,iteration);
-            //C_out = MS::UniformMeanCurvature(V_denoise,F);
-            //C_out = curvature_display_scale * C_out.array() / (C_out.maxCoeff() - C_out.minCoeff());
-            //igl::parula(C_out, false, C);
+			C_curvature = MS::NonUniformMeanCurvature(V_smoothed, F);
             Visualise(V_smoothed,F);
             break;
         default:
             std::cout << "ERROR: Undefined Smoothing Mode" << std::endl;
             break;
     }
+	VisualiseCurvature();
 }
 
 void Scene::Initialise(std::string filename){
@@ -176,6 +173,7 @@ void Scene::VisualiseCurvature() {
 	Eigen::VectorXd C_curvature_scaled;
 	C_curvature_scaled = curvature_display_scale * C_curvature.array() / (C_curvature.maxCoeff() - C_curvature.minCoeff());
 	igl::parula(C_curvature_scaled, false, C);
-	Visualise(V, F);
+	Visualise(V_smoothed, F);
 
 }
+

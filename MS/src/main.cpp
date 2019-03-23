@@ -72,7 +72,7 @@ int main(int argc, char *argv[]){
                 scene.Discretisation(0);
             }
 
-            if (ImGui::Button("Uniform Gaussian Curvature", ImVec2(-1, 0))){
+            if (ImGui::Button("Gaussian Curvature", ImVec2(-1, 0))){
                 scene.Discretisation(1);
             }
 
