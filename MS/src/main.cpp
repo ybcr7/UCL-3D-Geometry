@@ -26,7 +26,7 @@ int main(int argc, char *argv[]){
     double noise = 0.5;
 	double curvature_display_scale = 5;
 	int compare = 0;
-    static const char *models[]{"bunny.off","cow_manifold.off","camel.off"};
+    static const char *models[]{"bunny.off","cow.off","cow_manifold.off","cow_manifold2.off","camel.off","dragon.off"};
     static int model_index = 0;
 	
     scene.SetNumEigenvector(eigenvector);

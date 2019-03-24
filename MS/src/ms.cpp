@@ -11,9 +11,6 @@
 #include <igl/vertex_triangle_adjacency.h>
 #include <igl/adjacency_list.h>
 #include <igl/bounding_box.h>
-#include <igl/is_edge_manifold.h>
-#include <igl/cotmatrix.h>
-#include <igl/massmatrix.h>
 #include "Spectra/SymEigsSolver.h"
 #include "Spectra/MatOp/SparseSymMatProd.h"
 #include "ms.h"
@@ -45,101 +42,80 @@ Eigen::SparseMatrix<double> MS::CotangentMatrix(Eigen::MatrixXd V_in, Eigen::Mat
 
     Eigen::SparseMatrix<double> contangent_matrix(V_in.rows(), V_in.rows());
 
-    if (igl::is_edge_manifold(F_in)){
-		// Manifold
-		//std::cout << "Manifold Mesh - Using MS::CotangentMatrix()" << std::endl;
-        
-        // Find connected vertex for each vertex (ordered)
-        std::vector<std::vector<int>> V_adjacent;
-        igl::adjacency_list(F_in, V_adjacent);
+    // Find connected vertex for each vertex (ordered)
+    std::vector<std::vector<int>> V_adjacent;
+    igl::adjacency_list(F_in, V_adjacent);
 
-		// Find connected faces for each vertex
-		std::vector<std::vector<int> > VF;
-		std::vector<std::vector<int> > VFi;
-		igl::vertex_triangle_adjacency(V_in.rows(), F_in, VF, VFi);
+	// Find connected faces for each vertex
+	std::vector<std::vector<int> > VF;
+	std::vector<std::vector<int> > VFi;
+	igl::vertex_triangle_adjacency(V_in.rows(), F_in, VF, VFi);
 
-		// Compute the cotangent of alpha and beta and construct the Laplacian matrix
-        Eigen::Vector3d V_current, V_1, V_2, V_3;
-        for (int i = 0; i < V_adjacent.size(); i++){
+	// Compute the cotangent of founded vertex for each connected surface
+    for (int i = 0; i < V_adjacent.size(); i++){
 
-            double sum_cotangent = 0;
-            V_current = V_in.row(i);
+		Eigen::Vector3d V_i = V_in.row(i);
+        double sum_cotangent = 0;
+		
+		// Find a list of faces that only connect to the current vertex
+		std::vector<int> Fi_connected = VF[i];
 
-			// Find a list of faces that only connect to the current vertex
-			std::vector<int> Fi_connected = VF[i];
+        for (int j = 0; j < V_adjacent[i].size(); j++){
 
-            for (int j = 0; j < V_adjacent[i].size(); j++){
+			Eigen::Vector3d V_j = V_in.row(V_adjacent[i][j]);
 
-				std::vector<int> Vi_adjacent_pair;
+			std::vector<int> Vi_adjacent;
 
-				// Find two vertex that are opposite to the current edge using face information
-				for (int f = 0; f < Fi_connected.size(); f++) {
-					Eigen::Vector3i F_current = F_in.row(Fi_connected[f]);
+			// Find all vertices that are opposite to the current edge using face information
+			for (int f = 0; f < Fi_connected.size(); f++) {
+				Eigen::Vector3i F_current = F_in.row(Fi_connected[f]);
 
-					// If any face contains this edge (i <-> j)
-					if (F_current.x() == V_adjacent[i][j] || F_current.y() == V_adjacent[i][j] || F_current.z() == V_adjacent[i][j]) {
+				// If any face contains this edge (i <-> j)
+				if (F_current.x() == V_adjacent[i][j] || F_current.y() == V_adjacent[i][j] || F_current.z() == V_adjacent[i][j]) {
 
-						// Construct a vertex index list for the found face
-						std::vector<int> Vi_found;
-						Vi_found.push_back(F_current.x());
-						Vi_found.push_back(F_current.y());
-						Vi_found.push_back(F_current.z());
+					// Construct a vertex index list for the found face
+					std::vector<int> Vi_found;
+					Vi_found.push_back(F_current.x());
+					Vi_found.push_back(F_current.y());
+					Vi_found.push_back(F_current.z());
 
-						// Remove the edge vertex i, j and the last vertex is the one we need
-						Vi_found.erase(std::remove(Vi_found.begin(), Vi_found.end(), i), Vi_found.end());
-						Vi_found.erase(std::remove(Vi_found.begin(), Vi_found.end(), V_adjacent[i][j]), Vi_found.end());
-						Vi_adjacent_pair.push_back(Vi_found[0]);
-					}
+					// Remove the edge vertex i, j and the last vertex is the one we need
+					Vi_found.erase(std::remove(Vi_found.begin(), Vi_found.end(), i), Vi_found.end());
+					Vi_found.erase(std::remove(Vi_found.begin(), Vi_found.end(), V_adjacent[i][j]), Vi_found.end());
+					Vi_adjacent.push_back(Vi_found[0]);
 				}
-						
-				// Because the mesh is manifold, it should return two vertex
-				// However, if the mesh is not naturally manifold e.g. converted from a non-manfold mesh, some information might be broken:
-				// This IF-STATMENT is introduced because it cannot handle the converted manifold cow (but works perfectly with bunny) in order to eliminate the error
-				// Without this IF-STATEMENT, the computation will produce exactly 6 errors for 6 vertex which form 2 faces that were removed from the non-manifold mesh using MeshLab
-				if (Vi_adjacent_pair.size() < 2) {
-					// If the mesh is broken for some reasons
-					// As mentioned before, the manifold mesh should always return the vertex as pair
-					// If an error is detected, we treat this value as invalid
-					double sum = 0;
+			}
+			
+			// Find the total number of founded vertices
+			int Vi_adjacent_num = Vi_adjacent.size();
+			double sum = 0;
 
-					// If I != J
-					if (V_in.row(i) != V_in.row(V_adjacent[i][j])) {
-						contangent_matrix.insert(i, V_adjacent[i][j]) = sum;
-						sum_cotangent += sum;
-					}
-				
-				}else {
-					// Get two vertex and compute cotangent
-					V_1 = V_in.row(Vi_adjacent_pair[0]);
-					V_3 = V_in.row(Vi_adjacent_pair[1]);
-					V_2 = V_in.row(V_adjacent[i][j]);
+			// Calculate each vertices cotangent value and accumulate it to the sum
+			for (int c = 0; c < Vi_adjacent_num; c++) {
+				Eigen::Vector3d V_cotagent = V_in.row(Vi_adjacent[c]);
+				double cosine_gamma = (V_i - V_cotagent).dot(V_j - V_cotagent) / ((V_i - V_cotagent).norm()*(V_j - V_cotagent).norm());
+				sum += 1.0 / std::tan(std::acos(cosine_gamma));
+			
+			}
 
-					// Compute using the formula
-					double cosine_alpha = (V_current - V_1).dot(V_2 - V_1) / ((V_current - V_1).norm()*(V_2 - V_1).norm());
-					double cosine_beta = (V_current - V_3).dot(V_2 - V_3) / ((V_current - V_3).norm()*(V_2 - V_3).norm());
-					double sum = 0.5 * (1.0 / std::tan(std::acos(cosine_alpha)) + 1.0 / std::tan(std::acos(cosine_beta)));
+			// Divide the sum by number of cotangent vertices
+			// For a perfect manifold mesh, each edge will have exactly two connected faces (1 edge: 2 faces)
+			// Then it will find two contangent values, as suggested in lecture slide, alpha and beta. Thus we need divide the sum by 2
+			// Here we can also handle non-manifold (1 edge: n faces) or non-enclosed mesh (1 edge: 1 face), we need to divide the sum by n.
+			sum /= Vi_adjacent_num;
 
-					// If I != J
-					if (i !=V_adjacent[i][j]) {
-						contangent_matrix.insert(i, V_adjacent[i][j]) = sum;
-						sum_cotangent += sum;
-					}
-				}
-            }
-
-            // Diagonal direction (I = J)
-			contangent_matrix.insert(i, i) = -1.0 * sum_cotangent;
+			// Check cotagent matrix condition (i != j)
+			if (i != V_adjacent[i][j]) {
+				contangent_matrix.insert(i, V_adjacent[i][j]) = sum;
+				sum_cotangent += sum;
+			}
         }
 
-        return contangent_matrix;
+        // Diagonal direction (i = j)
+		contangent_matrix.insert(i, i) = -1.0 * sum_cotangent;
+    }
 
-    }else{
-        // Non-Manifold
-		// This function will NOT be triggered unless using non-manifold mesh
-		std::cout << "WARNING: Non-Manifold Mesh Detected - Using igl::cotmatrix() Instead" << std::endl;
-		igl::cotmatrix(V_in, F_in, contangent_matrix);
-        return contangent_matrix;
-    };
+    return contangent_matrix;
 
 }
 
